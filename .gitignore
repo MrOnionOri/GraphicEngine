@@ -5,3 +5,5 @@ GraphicEngine/x64/
 *.suo
 *.VC.db
 *.VC.opendb
+ThirdParty/imgui/.git/
+GraphicEngineEditor.ini

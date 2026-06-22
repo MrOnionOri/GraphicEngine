@@ -16,6 +16,7 @@ public:
     glm::mat4 worldTransform(const Entity& entity) const;
     void clear();
     const std::vector<Entity>& entities() const { return entities_; }
+    std::vector<Entity>& entities() { return entities_; }
 
 private:
     std::vector<Entity> entities_;

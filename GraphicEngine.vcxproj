@@ -129,7 +129,7 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)ThirdParty\imgui;$(ProjectDir)ThirdParty\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -137,7 +137,9 @@
     <ClCompile Include="Engine\Core\Application.cpp" />
     <ClCompile Include="Engine\Core\Time.cpp" />
     <ClCompile Include="Engine\Core\Window.cpp" />
+    <ClCompile Include="Engine\Editor\EditorLayer.cpp" />
     <ClCompile Include="Engine\Renderer\EditorCamera.cpp" />
+    <ClCompile Include="Engine\Renderer\Framebuffer.cpp" />
     <ClCompile Include="Engine\Renderer\AssetManager.cpp" />
     <ClCompile Include="Engine\Renderer\Mesh.cpp" />
     <ClCompile Include="Engine\Renderer\Renderer.cpp" />
@@ -147,6 +149,12 @@
     <ClCompile Include="Engine\Scene\SceneSerializer.cpp" />
     <ClCompile Include="GraphicEngine.cpp" />
     <ClCompile Include="Sandbox\SandboxApplication.cpp" />
+    <ClCompile Include="ThirdParty\imgui\imgui.cpp" />
+    <ClCompile Include="ThirdParty\imgui\imgui_draw.cpp" />
+    <ClCompile Include="ThirdParty\imgui\imgui_tables.cpp" />
+    <ClCompile Include="ThirdParty\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="ThirdParty\imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="ThirdParty\imgui\backends\imgui_impl_opengl3.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\Core\AssetPath.h" />
@@ -154,7 +162,9 @@
     <ClInclude Include="Engine\Core\Input.h" />
     <ClInclude Include="Engine\Core\Time.h" />
     <ClInclude Include="Engine\Core\Window.h" />
+    <ClInclude Include="Engine\Editor\EditorLayer.h" />
     <ClInclude Include="Engine\Renderer\EditorCamera.h" />
+    <ClInclude Include="Engine\Renderer\Framebuffer.h" />
     <ClInclude Include="Engine\Renderer\AssetManager.h" />
     <ClInclude Include="Engine\Renderer\Mesh.h" />
     <ClInclude Include="Engine\Renderer\Renderer.h" />

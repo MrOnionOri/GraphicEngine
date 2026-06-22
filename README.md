@@ -63,3 +63,20 @@ camino, mientras `VoxelGridComponent` sigue generando sus instancias en lote.
 demo se define en `Assets/Scenes/Sandbox.gescene`, no en el código de Sandbox.
 Las entidades usan IDs persistentes y pueden tener padre; `Scene` compone sus
 transformaciones locales, rechaza ciclos y valida referencias inválidas.
+
+## Editor
+
+Dear ImGui está integrado en `ThirdParty/imgui`. El editor muestra jerarquía de
+escena, inspector de componentes y estadísticas de frame. Desde el inspector se
+pueden modificar transformaciones, materiales, grids voxel y luces en tiempo
+real; `Save Scene` serializa el estado actual al archivo `.gescene` cargado.
+
+La escena se renderiza en un `Framebuffer` independiente con attachments de
+color y profundidad. La textura resultante aparece dentro del panel `Viewport`,
+que puede acoplarse y redimensionarse junto con los demás paneles. La cámara solo
+captura controles cuando el cursor está sobre este viewport.
+
+El framebuffer también contiene un attachment entero `R32UI` invisible. El
+renderer escribe ahí el ID de cada entidad, permitiendo seleccionarla con clic
+izquierdo directamente desde `Scene View`; jerarquía e inspector se sincronizan
+con el resultado.

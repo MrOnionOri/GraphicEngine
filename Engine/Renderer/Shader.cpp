@@ -60,6 +60,10 @@ void Shader::setInt(const char* name, int value) const {
     glUniform1i(uniformLocation(name), value);
 }
 
+void Shader::setUInt(const char* name, unsigned int value) const {
+    glUniform1ui(uniformLocation(name), value);
+}
+
 GLint Shader::uniformLocation(const char* name) const {
     const auto existing = uniformLocations_.find(name);
     if (existing != uniformLocations_.end()) return existing->second;

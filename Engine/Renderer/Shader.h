@@ -22,6 +22,7 @@ public:
     void setVec3(const char* name, const glm::vec3& value) const;
     void setFloat(const char* name, float value) const;
     void setInt(const char* name, int value) const;
+    void setUInt(const char* name, unsigned int value) const;
 
 private:
     GLuint id_ = 0;

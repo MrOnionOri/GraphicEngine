@@ -20,7 +20,11 @@ Renderer::Renderer()
 }
 
 void Renderer::render(const Scene& scene, const EditorCamera& camera, float aspectRatio) {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    const GLfloat clearColor[]{0.055f, 0.075f, 0.10f, 1.0f};
+    const GLuint clearEntity[]{0};
+    glClearBufferfv(GL_COLOR, 0, clearColor);
+    glClearBufferuiv(GL_COLOR, 1, clearEntity);
+    glClear(GL_DEPTH_BUFFER_BIT);
     Shader& shader = assets_.shader("VoxelLit");
     shader.bind();
     shader.setMat4("uViewProjection", camera.projectionMatrix(aspectRatio) * camera.viewMatrix());
@@ -43,6 +47,7 @@ void Renderer::render(const Scene& scene, const EditorCamera& camera, float aspe
 
     for (const Entity& entity : scene.entities()) {
         if (!entity.hasVoxelGrid()) continue;
+        shader.setUInt("uEntityId", entity.id());
         const MaterialComponent defaultMaterial;
         const MaterialComponent& material = entity.hasMaterial() ? entity.material() : defaultMaterial;
         shader.setVec3("uBaseColor", material.baseColor);
@@ -71,6 +76,7 @@ void Renderer::render(const Scene& scene, const EditorCamera& camera, float aspe
 
     for (const Entity& entity : scene.entities()) {
         if (!entity.hasMeshRenderer()) continue;
+        shader.setUInt("uEntityId", entity.id());
         const MaterialComponent defaultMaterial;
         const MaterialComponent& material = entity.hasMaterial() ? entity.material() : defaultMaterial;
         shader.setVec3("uBaseColor", material.baseColor);

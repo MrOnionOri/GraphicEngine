@@ -23,6 +23,7 @@ public:
     }
     bool hasVoxelGrid() const { return voxelGrid_.has_value(); }
     const VoxelGridComponent& voxelGrid() const { return voxelGrid_.value(); }
+    VoxelGridComponent& voxelGrid() { return voxelGrid_.value(); }
 
     MaterialComponent& addMaterial(const MaterialComponent& component = {}) {
         material_ = component;
@@ -30,6 +31,7 @@ public:
     }
     bool hasMaterial() const { return material_.has_value(); }
     const MaterialComponent& material() const { return material_.value(); }
+    MaterialComponent& material() { return material_.value(); }
 
     MeshRendererComponent& addMeshRenderer(const MeshRendererComponent& component = {}) {
         meshRenderer_ = component;
@@ -37,6 +39,7 @@ public:
     }
     bool hasMeshRenderer() const { return meshRenderer_.has_value(); }
     const MeshRendererComponent& meshRenderer() const { return meshRenderer_.value(); }
+    MeshRendererComponent& meshRenderer() { return meshRenderer_.value(); }
 
     DirectionalLightComponent& addDirectionalLight(const DirectionalLightComponent& component = {}) {
         directionalLight_ = component;
@@ -44,6 +47,7 @@ public:
     }
     bool hasDirectionalLight() const { return directionalLight_.has_value(); }
     const DirectionalLightComponent& directionalLight() const { return directionalLight_.value(); }
+    DirectionalLightComponent& directionalLight() { return directionalLight_.value(); }
 
 private:
     friend class Scene;
