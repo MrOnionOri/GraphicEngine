@@ -1,0 +1,7 @@
+.vs/
+x64/
+GraphicEngine/x64/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Engine\Core\AssetPath.cpp"><Filter>Engine\Core</Filter></ClCompile>
+    <Filter Include="Engine\Core"><UniqueIdentifier>{0AB63A49-D209-4BE3-98D1-EF4AC7340841}</UniqueIdentifier></Filter>
+    <Filter Include="Engine\Renderer"><UniqueIdentifier>{D37F84AC-2553-44FC-AE61-E4BAAE678102}</UniqueIdentifier></Filter>
+    <Filter Include="Engine\Scene"><UniqueIdentifier>{C64CDFBF-BA36-4524-B483-4CEAD78ED952}</UniqueIdentifier></Filter>
+    <Filter Include="Sandbox"><UniqueIdentifier>{094258A7-0D87-4A24-B8E8-2F2470652149}</UniqueIdentifier></Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="GraphicEngine.cpp"><Filter>Sandbox</Filter></ClCompile>
+    <ClCompile Include="Sandbox\SandboxApplication.cpp"><Filter>Sandbox</Filter></ClCompile>
+    <ClCompile Include="Engine\Core\Application.cpp"><Filter>Engine\Core</Filter></ClCompile>
+    <ClCompile Include="Engine\Core\Time.cpp"><Filter>Engine\Core</Filter></ClCompile>
+    <ClCompile Include="Engine\Core\Window.cpp"><Filter>Engine\Core</Filter></ClCompile>
+    <ClCompile Include="Engine\Renderer\EditorCamera.cpp"><Filter>Engine\Renderer</Filter></ClCompile>
+    <ClCompile Include="Engine\Renderer\AssetManager.cpp"><Filter>Engine\Renderer</Filter></ClCompile>
+    <ClCompile Include="Engine\Renderer\Mesh.cpp"><Filter>Engine\Renderer</Filter></ClCompile>
+    <ClCompile Include="Engine\Renderer\Renderer.cpp"><Filter>Engine\Renderer</Filter></ClCompile>
+    <ClCompile Include="Engine\Renderer\Shader.cpp"><Filter>Engine\Renderer</Filter></ClCompile>
+    <ClCompile Include="Engine\Renderer\Texture2D.cpp"><Filter>Engine\Renderer</Filter></ClCompile>
+    <ClCompile Include="Engine\Scene\Scene.cpp"><Filter>Engine\Scene</Filter></ClCompile>
+    <ClCompile Include="Engine\Scene\SceneSerializer.cpp"><Filter>Engine\Scene</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\Core\AssetPath.h"><Filter>Engine\Core</Filter></ClInclude>
+    <ClInclude Include="Sandbox\SandboxApplication.h"><Filter>Sandbox</Filter></ClInclude>
+    <ClInclude Include="Engine\Core\Application.h"><Filter>Engine\Core</Filter></ClInclude>
+    <ClInclude Include="Engine\Core\Input.h"><Filter>Engine\Core</Filter></ClInclude>
+    <ClInclude Include="Engine\Core\Time.h"><Filter>Engine\Core</Filter></ClInclude>
+    <ClInclude Include="Engine\Core\Window.h"><Filter>Engine\Core</Filter></ClInclude>
+    <ClInclude Include="Engine\Renderer\EditorCamera.h"><Filter>Engine\Renderer</Filter></ClInclude>
+    <ClInclude Include="Engine\Renderer\AssetManager.h"><Filter>Engine\Renderer</Filter></ClInclude>
+    <ClInclude Include="Engine\Renderer\Mesh.h"><Filter>Engine\Renderer</Filter></ClInclude>
+    <ClInclude Include="Engine\Renderer\Renderer.h"><Filter>Engine\Renderer</Filter></ClInclude>
+    <ClInclude Include="Engine\Renderer\Shader.h"><Filter>Engine\Renderer</Filter></ClInclude>
+    <ClInclude Include="Engine\Renderer\Texture2D.h"><Filter>Engine\Renderer</Filter></ClInclude>
+    <ClInclude Include="Engine\Scene\Components.h"><Filter>Engine\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\Scene\Entity.h"><Filter>Engine\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\Scene\Scene.h"><Filter>Engine\Scene</Filter></ClInclude>
+    <ClInclude Include="Engine\Scene\SceneSerializer.h"><Filter>Engine\Scene</Filter></ClInclude>
+    <ClInclude Include="voxel.h"><Filter>Engine\Renderer</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Assets\Scenes\Sandbox.gescene"><Filter>Engine\Scene</Filter></None>
+    <None Include="Assets\Textures\Grid.ppm"><Filter>Engine\Renderer</Filter></None>
+    <None Include="Assets\Shaders\Voxel.frag"><Filter>Engine\Renderer</Filter></None>
+    <None Include="Assets\Shaders\Voxel.vert"><Filter>Engine\Renderer</Filter></None>
+  </ItemGroup>
+</Project>
