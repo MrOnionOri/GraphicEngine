@@ -17,6 +17,7 @@ public:
         const std::filesystem::path& fragmentPath);
     Texture2D& loadTexture(const std::string& name, const std::filesystem::path& path);
     Mesh& createCube(const std::string& name);
+    Mesh& createWireCube(const std::string& name);
 
     Shader& shader(const std::string& name) const;
     Texture2D& texture(const std::string& name) const;

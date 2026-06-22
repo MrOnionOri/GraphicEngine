@@ -136,10 +136,13 @@
     <ClCompile Include="Engine\Core\AssetPath.cpp" />
     <ClCompile Include="Engine\Core\Application.cpp" />
     <ClCompile Include="Engine\Core\Time.cpp" />
+    <ClCompile Include="Engine\Core\ThreadPool.cpp" />
     <ClCompile Include="Engine\Core\Window.cpp" />
     <ClCompile Include="Engine\Editor\EditorLayer.cpp" />
+    <ClCompile Include="Engine\Gameplay\PlayerController.cpp" />
     <ClCompile Include="Engine\Renderer\EditorCamera.cpp" />
     <ClCompile Include="Engine\Renderer\Framebuffer.cpp" />
+    <ClCompile Include="Engine\Renderer\Frustum.cpp" />
     <ClCompile Include="Engine\Renderer\AssetManager.cpp" />
     <ClCompile Include="Engine\Renderer\Mesh.cpp" />
     <ClCompile Include="Engine\Renderer\Renderer.cpp" />
@@ -147,6 +150,9 @@
     <ClCompile Include="Engine\Renderer\Texture2D.cpp" />
     <ClCompile Include="Engine\Scene\Scene.cpp" />
     <ClCompile Include="Engine\Scene\SceneSerializer.cpp" />
+    <ClCompile Include="Engine\Voxel\Chunk.cpp" />
+    <ClCompile Include="Engine\Voxel\ChunkMeshBuilder.cpp" />
+    <ClCompile Include="Engine\Voxel\VoxelWorld.cpp" />
     <ClCompile Include="GraphicEngine.cpp" />
     <ClCompile Include="Sandbox\SandboxApplication.cpp" />
     <ClCompile Include="ThirdParty\imgui\imgui.cpp" />
@@ -161,10 +167,13 @@
     <ClInclude Include="Engine\Core\Application.h" />
     <ClInclude Include="Engine\Core\Input.h" />
     <ClInclude Include="Engine\Core\Time.h" />
+    <ClInclude Include="Engine\Core\ThreadPool.h" />
     <ClInclude Include="Engine\Core\Window.h" />
     <ClInclude Include="Engine\Editor\EditorLayer.h" />
+    <ClInclude Include="Engine\Gameplay\PlayerController.h" />
     <ClInclude Include="Engine\Renderer\EditorCamera.h" />
     <ClInclude Include="Engine\Renderer\Framebuffer.h" />
+    <ClInclude Include="Engine\Renderer\Frustum.h" />
     <ClInclude Include="Engine\Renderer\AssetManager.h" />
     <ClInclude Include="Engine\Renderer\Mesh.h" />
     <ClInclude Include="Engine\Renderer\Renderer.h" />
@@ -174,6 +183,10 @@
     <ClInclude Include="Engine\Scene\Entity.h" />
     <ClInclude Include="Engine\Scene\Scene.h" />
     <ClInclude Include="Engine\Scene\SceneSerializer.h" />
+    <ClInclude Include="Engine\Voxel\Block.h" />
+    <ClInclude Include="Engine\Voxel\Chunk.h" />
+    <ClInclude Include="Engine\Voxel\ChunkMeshBuilder.h" />
+    <ClInclude Include="Engine\Voxel\VoxelWorld.h" />
     <ClInclude Include="Sandbox\SandboxApplication.h" />
     <ClInclude Include="voxel.h" />
   </ItemGroup>
@@ -184,10 +197,25 @@
     <None Include="Assets\Textures\Grid.ppm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="Assets\Textures\Blocks.ppm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Assets\Shaders\Voxel.frag">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Assets\Shaders\Voxel.vert">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Assets\Shaders\Terrain.frag">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Assets\Shaders\Terrain.vert">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Assets\Shaders\DebugLine.frag">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Assets\Shaders\DebugLine.vert">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

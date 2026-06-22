@@ -80,3 +80,60 @@ El framebuffer también contiene un attachment entero `R32UI` invisible. El
 renderer escribe ahí el ID de cada entidad, permitiendo seleccionarla con clic
 izquierdo directamente desde `Scene View`; jerarquía e inspector se sincronizan
 con el resultado.
+
+## Mundo voxel
+
+`Engine/Voxel` contiene tipos de bloque, datos de `Chunk` y construcción de
+mallas. El primer terreno usa chunks de 16×32×16, generación procedural por seed
+y capas Grass/Dirt/Stone. `ChunkMeshBuilder` emite únicamente caras junto a aire,
+evitando renderizar geometría interna. El atlas `Blocks.ppm` agrupa las texturas
+de bloque y `VoxelTerrainComponent` permite persistir la seed en la escena.
+
+El menú `Game > Play` o `F5` activa interacción y muestra una mira. El renderer
+mantiene el `Chunk` editable, realiza raycast desde la cámara hasta 8 bloques y
+reconstruye la malla tras cada cambio. En Play, clic izquierdo rompe y
+`Shift + clic izquierdo` coloca un bloque de tierra; clic derecho controla la
+vista.
+
+En Play, `PlayerController` reemplaza el vuelo libre por un cuerpo AABB de
+0.6×1.8 bloques. Aplica gravedad con substeps, colisión separada por ejes,
+detección de suelo, salto con `Space` y respawn al caer fuera del mundo. Al
+entrar en Play, el jugador aparece sobre el bloque más alto del centro del chunk.
+
+`VoxelWorld` administra chunks mediante coordenadas globales firmadas y resuelve
+correctamente posiciones negativas. La escena inicial genera un área 3×3 de
+chunks; la altura usa coordenadas mundiales para mantener continuidad y el
+mesher consulta chunks vecinos para eliminar caras ocultas en sus fronteras.
+
+El streaming usa la posición de la cámara/jugador para garantizar un cuadrado de
+chunks alrededor suyo. `View radius` se ajusta desde el inspector entre 1 y 4.
+Los chunks visitados permanecen cargados para conservar ediciones; al conectar
+un chunk nuevo solo se remeshean sus fronteras y vecinos inmediatos.
+
+El meshing se ejecuta en hasta cuatro workers mediante snapshots inmutables que
+incluyen los bordes vecinos. Cada chunk tiene una revisión: los resultados de
+jobs viejos se descartan si el mundo cambió mientras trabajaban. La creación y
+actualización de buffers OpenGL permanece en el hilo principal.
+
+Los chunks modificados se guardan en binario bajo `Saves/World_<seed>` junto al
+ejecutable. Cada archivo incluye magic, versión y conteo de bloques. Los chunks
+que quedan más allá del radio visible más un margen se guardan y descargan; al
+regresar se restauran antes de remeshear. El cierre del mundo salva cualquier
+cambio sucio restante.
+
+## Diagnóstico de rendimiento
+
+`F2` o `Debug > Triangle Wireframe` alterna el rasterizado de líneas para mostrar
+los triángulos reales. El panel Statistics reporta triángulos enviados, draw
+calls, chunks visibles y jobs de meshing pendientes. Estas métricas permiten
+comparar optimizaciones bajo la misma cámara y distancia de chunks.
+
+`ChunkMeshBuilder` usa greedy meshing en los tres ejes. Las caras visibles con
+la misma orientación y material se fusionan en rectángulos grandes; las UV se
+repiten mediante un índice de tile separado para conservar el pixel art. Esto
+reduce triángulos sin volver al coste de instanciar un cubo completo por bloque.
+
+`F3` o `Debug > Frustum Culling` alterna el descarte de chunks fuera de cámara.
+El frustum se extrae de view-projection y prueba las ocho esquinas del AABB
+transformado de cada chunk. Statistics separa chunks cargados de visibles para
+mostrar cuántos draw calls y triángulos fueron evitados.

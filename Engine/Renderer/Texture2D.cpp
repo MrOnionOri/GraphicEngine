@@ -2,6 +2,7 @@
 #include "Engine/Core/AssetPath.h"
 
 #include <array>
+#include <algorithm>
 #include <fstream>
 #include <stdexcept>
 #include <string>
@@ -12,7 +13,7 @@ namespace Engine {
 Texture2D::Texture2D(int width, int height, const unsigned char* pixels) {
     glGenTextures(1, &id_);
     glBindTexture(GL_TEXTURE_2D, id_);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -62,6 +63,15 @@ std::unique_ptr<Texture2D> Texture2D::loadPpm(const std::filesystem::path& path)
                 static_cast<unsigned char>(value * 255 / maximum);
         }
         pixels[static_cast<std::size_t>(pixel * 4 + 3)] = 255;
+    }
+    // PPM rows are stored top-to-bottom, while OpenGL's UV origin is bottom-left.
+    const std::size_t rowBytes = static_cast<std::size_t>(width * 4);
+    for (int y = 0; y < height / 2; ++y) {
+        const std::size_t top = static_cast<std::size_t>(y) * rowBytes;
+        const std::size_t bottom = static_cast<std::size_t>(height - 1 - y) * rowBytes;
+        for (std::size_t byte = 0; byte < rowBytes; ++byte) {
+            std::swap(pixels[top + byte], pixels[bottom + byte]);
+        }
     }
     return std::make_unique<Texture2D>(width, height, pixels.data());
 }

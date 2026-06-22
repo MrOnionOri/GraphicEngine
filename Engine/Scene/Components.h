@@ -31,6 +31,17 @@ struct VoxelGridComponent {
     float spacing = 2.0f;
 };
 
+struct VoxelTerrainComponent {
+    int seed = 1337;
+    int viewRadius = 1;
+    int meshWorkers = 0;
+    int meshUploadsPerFrame = 2;
+    int meshQueueLimit = 16;
+    bool adaptiveScheduling = true;
+    float targetFrameMilliseconds = 8.33f;
+    int chunkLoadsPerFrame = 2;
+};
+
 struct MaterialComponent {
     glm::vec3 baseColor{0.20f, 0.65f, 0.95f};
     std::string textureAsset = "Grid";

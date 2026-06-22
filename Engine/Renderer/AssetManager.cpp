@@ -32,6 +32,15 @@ Mesh& AssetManager::createCube(const std::string& name) {
     return result;
 }
 
+Mesh& AssetManager::createWireCube(const std::string& name) {
+    const auto existing = meshes_.find(name);
+    if (existing != meshes_.end()) return *existing->second;
+    auto resource = Mesh::createWireCube();
+    Mesh& result = *resource;
+    meshes_.emplace(name, std::move(resource));
+    return result;
+}
+
 Shader& AssetManager::shader(const std::string& name) const {
     const auto found = shaders_.find(name);
     if (found == shaders_.end()) throw std::runtime_error("Shader no cargado: " + name);

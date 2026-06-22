@@ -7,24 +7,36 @@
 
 namespace Engine {
 
-void EditorCamera::update(const Window& window, float deltaTime) {
+void EditorCamera::update(const Window& window, float deltaTime, bool viewportActive, bool allowMovement,
+    bool forceMouseLook) {
     const float distance = movementSpeed_ * deltaTime;
     const glm::vec3 right = glm::normalize(glm::cross(front_, up_));
-    if (Input::keyPressed(window, GLFW_KEY_W)) position_ += front_ * distance;
-    if (Input::keyPressed(window, GLFW_KEY_S)) position_ -= front_ * distance;
-    if (Input::keyPressed(window, GLFW_KEY_A)) position_ -= right * distance;
-    if (Input::keyPressed(window, GLFW_KEY_D)) position_ += right * distance;
-    if (Input::keyPressed(window, GLFW_KEY_UP)) position_ += up_ * distance;
-    if (Input::keyPressed(window, GLFW_KEY_DOWN)) position_ -= up_ * distance;
+    if (viewportActive && allowMovement) {
+        if (Input::keyPressed(window, GLFW_KEY_W)) position_ += front_ * distance;
+        if (Input::keyPressed(window, GLFW_KEY_S)) position_ -= front_ * distance;
+        if (Input::keyPressed(window, GLFW_KEY_A)) position_ -= right * distance;
+        if (Input::keyPressed(window, GLFW_KEY_D)) position_ += right * distance;
+        if (Input::keyPressed(window, GLFW_KEY_UP)) position_ += up_ * distance;
+        if (Input::keyPressed(window, GLFW_KEY_DOWN)) position_ -= up_ * distance;
+    }
 
     GLFWwindow* handle = window.nativeHandle();
-    const bool wantsToLook = glfwGetMouseButton(handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+    const bool windowFocused = glfwGetWindowAttrib(handle, GLFW_FOCUSED) == GLFW_TRUE;
+    const bool rightMouseDown = glfwGetMouseButton(handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+    const bool wantsToLook = windowFocused && ((forceMouseLook && viewportActive)
+        || (rightMouseDown && (viewportActive || looking_)));
     if (wantsToLook && !looking_) {
         looking_ = true;
         glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        if (glfwRawMouseMotionSupported() == GLFW_TRUE) {
+            glfwSetInputMode(handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+        }
         glfwGetCursorPos(handle, &lastMouseX_, &lastMouseY_);
     } else if (!wantsToLook && looking_) {
         looking_ = false;
+        if (glfwRawMouseMotionSupported() == GLFW_TRUE) {
+            glfwSetInputMode(handle, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+        }
         glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 
@@ -33,6 +45,7 @@ void EditorCamera::update(const Window& window, float deltaTime) {
         double mouseY = 0.0;
         glfwGetCursorPos(handle, &mouseX, &mouseY);
         yaw_ += static_cast<float>(mouseX - lastMouseX_) * mouseSensitivity_;
+        yaw_ = std::fmod(yaw_, 360.0f);
         pitch_ -= static_cast<float>(mouseY - lastMouseY_) * mouseSensitivity_;
         pitch_ = std::clamp(pitch_, -89.0f, 89.0f);
         lastMouseX_ = mouseX;

@@ -8,9 +8,13 @@ class Window;
 
 class EditorCamera {
 public:
-    void update(const Window& window, float deltaTime);
+    void update(const Window& window, float deltaTime, bool viewportActive, bool allowMovement = true,
+        bool forceMouseLook = false);
     glm::mat4 viewMatrix() const;
     glm::mat4 projectionMatrix(float aspectRatio) const;
+    const glm::vec3& position() const { return position_; }
+    const glm::vec3& forward() const { return front_; }
+    void setPosition(const glm::vec3& position) { position_ = position; }
 
 private:
     glm::vec3 position_{6.0f, 6.0f, -16.0f};

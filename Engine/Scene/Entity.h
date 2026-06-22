@@ -25,6 +25,14 @@ public:
     const VoxelGridComponent& voxelGrid() const { return voxelGrid_.value(); }
     VoxelGridComponent& voxelGrid() { return voxelGrid_.value(); }
 
+    VoxelTerrainComponent& addVoxelTerrain(const VoxelTerrainComponent& component = {}) {
+        voxelTerrain_ = component;
+        return *voxelTerrain_;
+    }
+    bool hasVoxelTerrain() const { return voxelTerrain_.has_value(); }
+    const VoxelTerrainComponent& voxelTerrain() const { return voxelTerrain_.value(); }
+    VoxelTerrainComponent& voxelTerrain() { return voxelTerrain_.value(); }
+
     MaterialComponent& addMaterial(const MaterialComponent& component = {}) {
         material_ = component;
         return *material_;
@@ -56,6 +64,7 @@ private:
     TagComponent tag_;
     TransformComponent transform_;
     std::optional<VoxelGridComponent> voxelGrid_;
+    std::optional<VoxelTerrainComponent> voxelTerrain_;
     std::optional<MaterialComponent> material_;
     std::optional<MeshRendererComponent> meshRenderer_;
     std::optional<DirectionalLightComponent> directionalLight_;

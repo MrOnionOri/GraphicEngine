@@ -4,8 +4,9 @@
 
 namespace Engine {
 
-Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices)
-    : indexCount_(static_cast<GLsizei>(indices.size())) {
+Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices,
+    GLenum primitive)
+    : indexCount_(static_cast<GLsizei>(indices.size())), primitive_(primitive) {
     glGenVertexArrays(1, &vertexArray_);
     glGenBuffers(1, &vertexBuffer_);
     glGenBuffers(1, &indexBuffer_);
@@ -24,6 +25,9 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>&
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
         reinterpret_cast<void*>(offsetof(Vertex, textureCoordinate)));
     glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+        reinterpret_cast<void*>(offsetof(Vertex, textureIndex)));
+    glEnableVertexAttribArray(3);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer_);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
@@ -31,7 +35,7 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<unsigned int>&
 
     glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer_);
     for (GLuint column = 0; column < 4; ++column) {
-        const GLuint location = 3 + column;
+        const GLuint location = 4 + column;
         glVertexAttribPointer(location, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4),
             reinterpret_cast<void*>(static_cast<std::size_t>(column) * sizeof(glm::vec4)));
         glEnableVertexAttribArray(location);
@@ -45,6 +49,19 @@ Mesh::~Mesh() {
     glDeleteBuffers(1, &indexBuffer_);
     glDeleteBuffers(1, &vertexBuffer_);
     glDeleteVertexArrays(1, &vertexArray_);
+}
+
+void Mesh::updateGeometry(const std::vector<Vertex>& vertices,
+    const std::vector<unsigned int>& indices) {
+    indexCount_ = static_cast<GLsizei>(indices.size());
+    glBindVertexArray(vertexArray_);
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer_);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+        vertices.data(), GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer_);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(indices.size() * sizeof(unsigned int)), indices.data(), GL_DYNAMIC_DRAW);
+    glBindVertexArray(0);
 }
 
 std::unique_ptr<Mesh> Mesh::createCube() {
@@ -70,6 +87,21 @@ std::unique_ptr<Mesh> Mesh::createCube() {
     return std::make_unique<Mesh>(vertices, indices);
 }
 
+std::unique_ptr<Mesh> Mesh::createWireCube() {
+    const std::vector<Vertex> vertices{
+        {{-0.5f,-0.5f,-0.5f}}, {{ 0.5f,-0.5f,-0.5f}},
+        {{ 0.5f, 0.5f,-0.5f}}, {{-0.5f, 0.5f,-0.5f}},
+        {{-0.5f,-0.5f, 0.5f}}, {{ 0.5f,-0.5f, 0.5f}},
+        {{ 0.5f, 0.5f, 0.5f}}, {{-0.5f, 0.5f, 0.5f}}
+    };
+    const std::vector<unsigned int> indices{
+        0,1, 1,2, 2,3, 3,0,
+        4,5, 5,6, 6,7, 7,4,
+        0,4, 1,5, 2,6, 3,7
+    };
+    return std::make_unique<Mesh>(vertices, indices, GL_LINES);
+}
+
 void Mesh::uploadInstances(const std::vector<glm::mat4>& transforms) {
     instanceCount_ = static_cast<GLsizei>(transforms.size());
     glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer_);
@@ -79,7 +111,13 @@ void Mesh::uploadInstances(const std::vector<glm::mat4>& transforms) {
 
 void Mesh::drawInstanced() const {
     glBindVertexArray(vertexArray_);
-    glDrawElementsInstanced(GL_TRIANGLES, indexCount_, GL_UNSIGNED_INT, nullptr, instanceCount_);
+    glDrawElementsInstanced(primitive_, indexCount_, GL_UNSIGNED_INT, nullptr, instanceCount_);
+    glBindVertexArray(0);
+}
+
+void Mesh::draw() const {
+    glBindVertexArray(vertexArray_);
+    glDrawElements(primitive_, indexCount_, GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);
 }
 

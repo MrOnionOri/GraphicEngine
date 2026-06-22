@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <string>
+#include <thread>
 
 namespace Engine {
 
@@ -48,6 +49,17 @@ void EditorLayer::beginFrame() {
             if (ImGui::MenuItem("Reset Default Layout")) resetLayoutRequested_ = true;
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu("Game")) {
+            if (ImGui::MenuItem(playing_ ? "Stop" : "Play", "F5")) togglePlay();
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Debug")) {
+            if (ImGui::MenuItem("Triangle Wireframe", "F2", wireframe_)) toggleWireframe();
+            if (ImGui::MenuItem("Frustum Culling", "F3", frustumCulling_)) toggleFrustumCulling();
+            if (ImGui::MenuItem("Chunk Bounds", "F4", chunkBounds_)) toggleChunkBounds();
+            if (ImGui::MenuItem("Occlusion Culling", "F6", occlusionCulling_)) toggleOcclusionCulling();
+            ImGui::EndMenu();
+        }
         ImGui::EndMainMenuBar();
     }
     if (resetLayoutRequested_) buildDefaultLayout(dockspaceId);
@@ -71,6 +83,10 @@ bool EditorLayer::wantsKeyboard() const { return ImGui::GetIO().WantCaptureKeybo
 void EditorLayer::drawViewport(unsigned int texture) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::Begin("Scene View");
+    if (viewportFocusRequested_) {
+        ImGui::SetWindowFocus();
+        viewportFocusRequested_ = false;
+    }
     const ImVec2 available = ImGui::GetContentRegionAvail();
     const ImVec2 imageSize{std::max(1.0f, available.x), std::max(1.0f, available.y)};
     const ImVec2 imageOrigin = ImGui::GetCursorScreenPos();
@@ -80,11 +96,43 @@ void EditorLayer::drawViewport(unsigned int texture) {
     viewportFocused_ = ImGui::IsWindowFocused();
     ImGui::Image(ImTextureRef(static_cast<ImTextureID>(texture)), imageSize,
         ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
-    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    if (!playing_ && ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         const ImVec2 mouse = ImGui::GetMousePos();
         const int x = static_cast<int>(mouse.x - imageOrigin.x);
         const int y = static_cast<int>(imageSize.y - (mouse.y - imageOrigin.y));
         pendingPick_ = std::pair<int, int>{x, y};
+    }
+    if (playing_) {
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        const ImVec2 center{imageOrigin.x + imageSize.x * 0.5f, imageOrigin.y + imageSize.y * 0.5f};
+        const ImU32 color = IM_COL32(255, 255, 255, 210);
+        drawList->AddLine({center.x - 7.0f, center.y}, {center.x + 7.0f, center.y}, color, 1.5f);
+        drawList->AddLine({center.x, center.y - 7.0f}, {center.x, center.y + 7.0f}, color, 1.5f);
+
+        constexpr float slotSize = 46.0f;
+        constexpr float gap = 5.0f;
+        const float hotbarWidth = slotSize * 5.0f + gap * 4.0f;
+        const float hotbarX = imageOrigin.x + (imageSize.x - hotbarWidth) * 0.5f;
+        const float hotbarY = imageOrigin.y + imageSize.y - slotSize - 14.0f;
+        const BlockType blocks[5]{BlockType::Grass, BlockType::Dirt, BlockType::Stone,
+            BlockType::Wood, BlockType::Leaves};
+        const ImU32 blockColors[5]{
+            IM_COL32(74, 185, 55, 255), IM_COL32(126, 78, 42, 255),
+            IM_COL32(125, 129, 132, 255), IM_COL32(118, 73, 36, 255),
+            IM_COL32(52, 142, 42, 255)};
+        for (int slot = 0; slot < 5; ++slot) {
+            const ImVec2 minimum{hotbarX + slot * (slotSize + gap), hotbarY};
+            const ImVec2 maximum{minimum.x + slotSize, minimum.y + slotSize};
+            drawList->AddRectFilled(minimum, maximum, IM_COL32(18, 20, 23, 220), 3.0f);
+            drawList->AddRectFilled({minimum.x + 7.0f, minimum.y + 7.0f},
+                {maximum.x - 7.0f, maximum.y - 7.0f}, blockColors[slot], 2.0f);
+            const bool selected = selectedBlock_ == blocks[slot];
+            drawList->AddRect(minimum, maximum,
+                selected ? IM_COL32(255, 238, 120, 255) : IM_COL32(145, 150, 160, 210),
+                3.0f, 0, selected ? 3.0f : 1.0f);
+            drawList->AddText({minimum.x + 4.0f, minimum.y + 2.0f},
+                IM_COL32(255, 255, 255, 255), std::to_string(slot + 1).c_str());
+        }
     }
     ImGui::End();
     ImGui::PopStyleVar();
@@ -99,6 +147,26 @@ std::optional<std::pair<int, int>> EditorLayer::consumePendingPick() {
 void EditorLayer::selectEntity(std::uint32_t entityId) {
     if (entityId == 0) selectedEntity_.reset();
     else selectedEntity_ = entityId;
+}
+
+void EditorLayer::setRendererStats(std::uint64_t triangles, std::uint32_t drawCalls,
+    std::uint32_t visibleChunks, std::uint32_t loadedChunks, std::uint32_t pendingJobs,
+    std::uint32_t uploadedMeshes, std::uint32_t activeWorkers,
+    std::uint32_t activeUploadBudget, std::uint32_t generatedChunks,
+    std::uint32_t pendingChunkJobs, float cpuRenderMs, float meshProcessingMs, float gpuRenderMs) {
+    renderedTriangles_ = triangles;
+    drawCalls_ = drawCalls;
+    visibleChunks_ = visibleChunks;
+    loadedChunks_ = loadedChunks;
+    pendingJobs_ = pendingJobs;
+    uploadedMeshes_ = uploadedMeshes;
+    activeWorkers_ = activeWorkers;
+    activeUploadBudget_ = activeUploadBudget;
+    generatedChunks_ = generatedChunks;
+    pendingChunkJobs_ = pendingChunkJobs;
+    cpuRenderMilliseconds_ = cpuRenderMs;
+    meshProcessingMilliseconds_ = meshProcessingMs;
+    gpuRenderMilliseconds_ = gpuRenderMs;
 }
 
 void EditorLayer::buildDefaultLayout(unsigned int dockspaceId) {
@@ -177,6 +245,28 @@ void EditorLayer::drawInspector(Scene& scene) {
         ImGui::DragInt("Depth", &grid.depth, 1.0f, 1, 64);
         ImGui::DragFloat("Spacing", &grid.spacing, 0.05f, 0.1f, 10.0f);
     }
+    if (entity->hasVoxelTerrain()) {
+        ImGui::SeparatorText("Voxel Terrain");
+        ImGui::InputInt("Seed", &entity->voxelTerrain().seed);
+        ImGui::SliderInt("View radius", &entity->voxelTerrain().viewRadius, 1, 4);
+        const unsigned int hardwareThreads = std::max(1u, std::thread::hardware_concurrency());
+        const int safeMaximum = std::clamp(static_cast<int>(hardwareThreads) - 1, 1, 16);
+        ImGui::SliderInt("Mesh workers (0 = Auto)", &entity->voxelTerrain().meshWorkers,
+            0, safeMaximum);
+        ImGui::SliderInt("GPU uploads/frame", &entity->voxelTerrain().meshUploadsPerFrame, 1, 8);
+        ImGui::SliderInt("Mesh queue limit", &entity->voxelTerrain().meshQueueLimit, 4, 64);
+        ImGui::Checkbox("Adaptive scheduler", &entity->voxelTerrain().adaptiveScheduling);
+        ImGui::SliderFloat("Target frame (ms)",
+            &entity->voxelTerrain().targetFrameMilliseconds, 4.0f, 33.33f, "%.2f ms");
+        ImGui::SliderInt("Chunk loads/frame", &entity->voxelTerrain().chunkLoadsPerFrame, 1, 8);
+        const float targetFps = 1000.0f / std::clamp(
+            entity->voxelTerrain().targetFrameMilliseconds, 4.0f, 33.33f);
+        ImGui::TextDisabled("Target: %.0f FPS", targetFps);
+        const int automaticWorkers = std::clamp(static_cast<int>(hardwareThreads) - 2, 1, 12);
+        ImGui::TextDisabled("CPU: %u threads | Auto uses %d and reserves %u",
+            hardwareThreads, automaticWorkers, hardwareThreads - automaticWorkers);
+        ImGui::TextDisabled("Regeneration on reload");
+    }
     if (entity->hasMeshRenderer()) {
         ImGui::SeparatorText("Mesh Renderer");
         ImGui::Text("Mesh: %s", entity->meshRenderer().meshAsset.c_str());
@@ -197,7 +287,25 @@ void EditorLayer::drawStatistics(const Scene& scene, const Time& time) {
     const float fps = time.deltaTime() > 0.0f ? 1.0f / time.deltaTime() : 0.0f;
     ImGui::Text("Frame: %.2f ms", milliseconds);
     ImGui::Text("FPS: %.0f", fps);
+    ImGui::Text("CPU render: %.2f ms", cpuRenderMilliseconds_);
+    ImGui::Text("GPU render: %.2f ms", gpuRenderMilliseconds_);
     ImGui::Text("Entities: %zu", scene.entities().size());
+    ImGui::Separator();
+    ImGui::Text("Triangles: %llu", static_cast<unsigned long long>(renderedTriangles_));
+    ImGui::Text("Draw calls: %u", drawCalls_);
+    ImGui::Text("Visible chunks: %u", visibleChunks_);
+    ImGui::Text("Loaded chunks: %u", loadedChunks_);
+    ImGui::Text("Generated this frame: %u", generatedChunks_);
+    ImGui::Text("Chunk jobs: %u", pendingChunkJobs_);
+    ImGui::Text("Mesh jobs: %u", pendingJobs_);
+    ImGui::Text("Mesh processing: %.2f ms", meshProcessingMilliseconds_);
+    ImGui::Text("Mesh uploads: %u", uploadedMeshes_);
+    ImGui::Text("Active workers: %u", activeWorkers_);
+    ImGui::Text("Upload budget: %u/frame", activeUploadBudget_);
+    ImGui::Text("Mode: %s", wireframe_ ? "Wireframe" : "Solid");
+    ImGui::Text("Frustum culling: %s", frustumCulling_ ? "On" : "Off");
+    ImGui::Text("Chunk bounds: %s", chunkBounds_ ? "On" : "Off");
+    ImGui::Text("Occlusion culling: %s", occlusionCulling_ ? "On" : "Off");
     ImGui::End();
 }
 
