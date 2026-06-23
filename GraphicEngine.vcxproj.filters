@@ -47,6 +47,7 @@
     <ClInclude Include="Engine\Core\Time.h"><Filter>Engine\Core</Filter></ClInclude>
     <ClInclude Include="Engine\Core\Window.h"><Filter>Engine\Core</Filter></ClInclude>
     <ClInclude Include="Engine\Editor\EditorLayer.h"><Filter>Engine\Editor</Filter></ClInclude>
+    <ClInclude Include="Engine\Gameplay\Inventory.h"><Filter>Engine\Gameplay</Filter></ClInclude>
     <ClInclude Include="Engine\Gameplay\PlayerController.h"><Filter>Engine\Gameplay</Filter></ClInclude>
     <ClInclude Include="Engine\Renderer\EditorCamera.h"><Filter>Engine\Renderer</Filter></ClInclude>
     <ClInclude Include="Engine\Renderer\Framebuffer.h"><Filter>Engine\Renderer</Filter></ClInclude>

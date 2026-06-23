@@ -170,6 +170,7 @@
     <ClInclude Include="Engine\Core\ThreadPool.h" />
     <ClInclude Include="Engine\Core\Window.h" />
     <ClInclude Include="Engine\Editor\EditorLayer.h" />
+    <ClInclude Include="Engine\Gameplay\Inventory.h" />
     <ClInclude Include="Engine\Gameplay\PlayerController.h" />
     <ClInclude Include="Engine\Renderer\EditorCamera.h" />
     <ClInclude Include="Engine\Renderer\Framebuffer.h" />

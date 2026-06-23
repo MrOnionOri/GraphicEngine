@@ -71,11 +71,30 @@ float fractalNoise2D(float x, float z, int seed, int octaves) {
     return result / totalAmplitude;
 }
 
+enum class Biome {
+    Plains,
+    Forest,
+    Desert,
+    Rocky
+};
+
 int terrainHeight(int worldX, int worldZ, int seed) {
     const float continent = fractalNoise2D(worldX * 0.025f, worldZ * 0.025f, seed, 4);
     const float hills = fractalNoise2D(worldX * 0.085f, worldZ * 0.085f, seed + 7919, 3);
+    const float mountains = fractalNoise2D(worldX * 0.018f, worldZ * 0.018f, seed + 27011, 3);
     return std::clamp(static_cast<int>(std::round(
-        3.0f + continent * 15.0f + hills * 7.0f)), 5, Chunk::Height - 3);
+        3.0f + continent * 15.0f + hills * 7.0f
+        + std::max(0.0f, mountains - 0.58f) * 18.0f)), 5, Chunk::Height - 3);
+}
+
+Biome biomeAt(int worldX, int worldZ, int seed) {
+    const float temperature = fractalNoise2D(worldX * 0.010f, worldZ * 0.010f, seed + 31193, 4);
+    const float humidity = fractalNoise2D(worldX * 0.012f, worldZ * 0.012f, seed + 47147, 4);
+    const float rockiness = fractalNoise2D(worldX * 0.017f, worldZ * 0.017f, seed + 61613, 3);
+    if (rockiness > 0.70f) return Biome::Rocky;
+    if (temperature > 0.60f && humidity < 0.46f) return Biome::Desert;
+    if (humidity > 0.55f) return Biome::Forest;
+    return Biome::Plains;
 }
 
 int floorDivide(int value, int divisor) {
@@ -113,6 +132,7 @@ void Chunk::generate(int seed) {
             const int worldX = chunkX_ * Width + x;
             const int worldZ = chunkZ_ * Depth + z;
             const int surface = terrainHeight(worldX, worldZ, seed);
+            const Biome biome = biomeAt(worldX, worldZ, seed);
             for (int y = 0; y <= surface; ++y) {
                 if (y > 1 && y < surface - 3) {
                     const float broadCave = valueNoise3D(worldX * 0.075f, y * 0.095f,
@@ -122,8 +142,19 @@ void Chunk::generate(int seed) {
                     if (broadCave * 0.72f + caveDetail * 0.28f > 0.69f) continue;
                 }
                 BlockType type = BlockType::Stone;
-                if (y == surface) type = BlockType::Grass;
+                if (biome == Biome::Desert && y >= surface - 3) type = BlockType::Sand;
+                else if (biome == Biome::Rocky) type = BlockType::Stone;
+                else if (y == surface) type = BlockType::Grass;
                 else if (y >= surface - 3) type = BlockType::Dirt;
+
+                if (type == BlockType::Stone && y > 3 && y < surface - 4) {
+                    const float ore = valueNoise3D(worldX * 0.29f, y * 0.41f,
+                        worldZ * 0.29f, seed + 982451653);
+                    const float oreShape = valueNoise3D(worldX * 0.53f, y * 0.61f,
+                        worldZ * 0.53f, seed + 433494437);
+                    if (ore * 0.75f + oreShape * 0.25f > 0.87f)
+                        type = BlockType::CoalOre;
+                }
                 setBlock(x, y, z, type);
             }
         }
@@ -149,7 +180,6 @@ void Chunk::generate(int seed) {
     const int lastCellZ = floorDivide(baseZ + Depth + 1, TreeCellSize);
     for (int cellZ = firstCellZ; cellZ <= lastCellZ; ++cellZ) {
         for (int cellX = firstCellX; cellX <= lastCellX; ++cellX) {
-            if (randomValue(cellX, 17, cellZ, seed + 49999) < 0.42f) continue;
             const int rootX = cellX * TreeCellSize + 1 + static_cast<int>(
                 randomValue(cellX, 29, cellZ, seed + 70001) * 5.0f);
             const int rootZ = cellZ * TreeCellSize + 1 + static_cast<int>(
@@ -161,6 +191,12 @@ void Chunk::generate(int seed) {
             if (localRootX < 2 || localRootX >= Width - 2
                 || localRootZ < 2 || localRootZ >= Depth - 2) continue;
             const int surface = terrainHeight(rootX, rootZ, seed);
+            const Biome biome = biomeAt(rootX, rootZ, seed);
+            float treeChance = 0.20f;
+            if (biome == Biome::Forest) treeChance = 0.72f;
+            else if (biome == Biome::Rocky) treeChance = 0.06f;
+            else if (biome == Biome::Desert) treeChance = 0.0f;
+            if (randomValue(cellX, 17, cellZ, seed + 49999) > treeChance) continue;
             const int neighborMinimum = std::min({terrainHeight(rootX - 1, rootZ, seed),
                 terrainHeight(rootX + 1, rootZ, seed), terrainHeight(rootX, rootZ - 1, seed),
                 terrainHeight(rootX, rootZ + 1, seed)});

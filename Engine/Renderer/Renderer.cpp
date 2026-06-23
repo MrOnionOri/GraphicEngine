@@ -594,17 +594,25 @@ void Renderer::scheduleTerrainMeshJobs(std::uint32_t entityId,
 
 bool Renderer::editTerrain(const Scene& scene, const EditorCamera& camera, bool placeBlock,
     BlockType placedBlock, const glm::vec3& forbiddenMin, const glm::vec3& forbiddenMax) {
+    return editTerrainDetailed(scene, camera, placeBlock, placedBlock,
+        forbiddenMin, forbiddenMax) == TerrainEditResult::Success;
+}
+
+Renderer::TerrainEditResult Renderer::editTerrainDetailed(const Scene& scene,
+    const EditorCamera& camera, bool placeBlock, BlockType placedBlock,
+    const glm::vec3& forbiddenMin, const glm::vec3& forbiddenMax) {
     const auto hit = raycastTerrain(scene, camera, 8.0f);
-    if (!hit) return false;
+    if (!hit) return TerrainEditResult::NoTarget;
     auto worldEntry = terrainWorlds_.find(hit->entityId);
-    if (worldEntry == terrainWorlds_.end()) return false;
+    if (worldEntry == terrainWorlds_.end()) return TerrainEditResult::MissingWorld;
     const glm::ivec3 target = placeBlock ? hit->adjacent : hit->block;
     VoxelWorld& world = *worldEntry->second.world;
     const BlockType replacedBlock = world.block(target.x, target.y, target.z);
-    if (placeBlock && isSolid(world.block(target.x, target.y, target.z))) return false;
+    if (placeBlock && isSolid(world.block(target.x, target.y, target.z)))
+        return TerrainEditResult::TargetOccupied;
     if (placeBlock) {
         const Entity* terrainEntity = scene.findEntity(hit->entityId);
-        if (!terrainEntity) return false;
+        if (!terrainEntity) return TerrainEditResult::MissingWorld;
         const glm::mat4 transform = scene.worldTransform(*terrainEntity);
         glm::vec3 blockMin{std::numeric_limits<float>::infinity()};
         glm::vec3 blockMax{-std::numeric_limits<float>::infinity()};
@@ -624,7 +632,7 @@ bool Renderer::editTerrain(const Scene& scene, const EditorCamera& camera, bool 
             && blockMin.y < forbiddenMax.y - ContactEpsilon
             && blockMax.z > forbiddenMin.z + ContactEpsilon
             && blockMin.z < forbiddenMax.z - ContactEpsilon;
-        if (intersectsPlayer) return false;
+        if (intersectsPlayer) return TerrainEditResult::IntersectsForbiddenBounds;
     }
     world.setBlock(target.x, target.y, target.z,
         placeBlock ? placedBlock : BlockType::Air);
@@ -639,7 +647,18 @@ bool Renderer::editTerrain(const Scene& scene, const EditorCamera& camera, bool 
     if (localZ == Chunk::Depth - 1) markTerrainMeshDirty(hit->entityId, chunkX, chunkZ + 1, true);
     if (!placeBlock && replacedBlock == BlockType::Wood)
         decayLeavesAround(hit->entityId, world, target);
-    return true;
+    return TerrainEditResult::Success;
+}
+
+std::optional<Renderer::TerrainBlockTarget> Renderer::terrainTargetBlock(
+    const Scene& scene, const EditorCamera& camera) const {
+    const auto hit = raycastTerrain(scene, camera, 8.0f);
+    if (!hit) return std::nullopt;
+    const auto worldEntry = terrainWorlds_.find(hit->entityId);
+    if (worldEntry == terrainWorlds_.end()) return std::nullopt;
+    const BlockType type = worldEntry->second.world->block(hit->block.x, hit->block.y, hit->block.z);
+    if (!isSolid(type)) return std::nullopt;
+    return TerrainBlockTarget{hit->entityId, hit->block, type};
 }
 
 void Renderer::decayLeavesAround(std::uint32_t entityId, VoxelWorld& world,

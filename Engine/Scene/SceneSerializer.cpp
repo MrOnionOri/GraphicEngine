@@ -24,7 +24,7 @@ void SceneSerializer::load(Scene& scene, const std::filesystem::path& path) {
     expect(stream, "GESCENE");
     int version = 0;
     stream >> version;
-    if (version < 1 || version > 4) throw std::runtime_error("Version de escena no compatible");
+    if (version < 1 || version > 5) throw std::runtime_error("Version de escena no compatible");
 
     scene.clear();
     std::vector<std::pair<std::uint32_t, std::uint32_t>> parents;
@@ -59,6 +59,12 @@ void SceneSerializer::load(Scene& scene, const std::filesystem::path& path) {
             if (version >= 3) stream >> component.adaptiveScheduling
                 >> component.targetFrameMilliseconds;
             if (version >= 4) stream >> component.chunkLoadsPerFrame;
+            if (version >= 5) {
+                int profile = 1;
+                stream >> profile;
+                component.performanceProfile = static_cast<VoxelTerrainComponent::PerformanceProfile>(
+                    std::clamp(profile, 0, 3));
+            }
             entity.addVoxelTerrain(component);
         } else if (token != "NO_TERRAIN") throw std::runtime_error("Terreno voxel invalido");
 
@@ -94,7 +100,7 @@ void SceneSerializer::load(Scene& scene, const std::filesystem::path& path) {
 void SceneSerializer::save(const Scene& scene, const std::filesystem::path& path) {
     std::ofstream stream(path);
     if (!stream) throw std::runtime_error("No se pudo guardar la escena: " + path.string());
-    stream << "GESCENE 4\n";
+    stream << "GESCENE 5\n";
     for (const Entity& entity : scene.entities()) {
         stream << "ENTITY " << entity.id() << ' ' << std::quoted(entity.tag().name) << ' '
                << entity.parentId().value_or(0) << '\n';
@@ -114,7 +120,8 @@ void SceneSerializer::save(const Scene& scene, const std::filesystem::path& path
             << entity.voxelTerrain().meshQueueLimit << ' '
             << entity.voxelTerrain().adaptiveScheduling << ' '
             << entity.voxelTerrain().targetFrameMilliseconds << ' '
-            << entity.voxelTerrain().chunkLoadsPerFrame << '\n';
+            << entity.voxelTerrain().chunkLoadsPerFrame << ' '
+            << static_cast<int>(entity.voxelTerrain().performanceProfile) << '\n';
         else stream << "NO_TERRAIN\n";
         if (entity.hasMeshRenderer()) stream << "MESH " << std::quoted(entity.meshRenderer().meshAsset) << '\n';
         else stream << "NO_MESH\n";

@@ -1,9 +1,13 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <utility>
+#include "Engine/Gameplay/Inventory.h"
 #include "Engine/Voxel/Block.h"
+#include <imgui.h>
 
 namespace Engine {
 
@@ -28,7 +32,16 @@ public:
     int viewportWidth() const { return viewportWidth_; }
     int viewportHeight() const { return viewportHeight_; }
     bool playing() const { return playing_; }
-    void togglePlay() { playing_ = !playing_; viewportFocusRequested_ = playing_; }
+    void togglePlay() {
+        playing_ = !playing_;
+        viewportFocusRequested_ = playing_;
+        if (!playing_) closeInventory();
+    }
+    bool inventoryOpen() const { return inventoryOpen_; }
+    bool craftingTableOpen() const { return craftingTableOpen_; }
+    void toggleInventory() { inventoryOpen_ = playing_ && !inventoryOpen_; craftingTableOpen_ = false; }
+    void openCraftingTable() { inventoryOpen_ = playing_; craftingTableOpen_ = inventoryOpen_; }
+    void closeInventory() { inventoryOpen_ = false; craftingTableOpen_ = false; }
     bool wireframe() const { return wireframe_; }
     void toggleWireframe() { wireframe_ = !wireframe_; }
     bool frustumCulling() const { return frustumCulling_; }
@@ -45,7 +58,19 @@ public:
         float gpuRenderMs);
     std::optional<std::pair<int, int>> consumePendingPick();
     void selectEntity(std::uint32_t entityId);
-    void setSelectedBlock(BlockType block) { selectedBlock_ = block; }
+    void setInventory(const Inventory& inventory, int selectedHotbarSlot) {
+        inventory_ = inventory;
+        selectedHotbarSlot_ = selectedHotbarSlot;
+    }
+    void setCraftingGrid(const CraftingGrid& craftingGrid) { craftingGrid_ = craftingGrid; }
+    void setCraftingTableGrid(const CraftingTableGrid& grid) { craftingTableGrid_ = grid; }
+    std::optional<int> consumePendingInventorySlot();
+    std::optional<int> consumePendingCraftingSlot();
+    std::optional<int> consumePendingCraftingTableSlot();
+    bool consumePendingCraftingOutput();
+    void setMiningProgress(BlockType block, float progress);
+    void clearMiningProgress();
+    void showActionMessage(std::string message);
 
 private:
     std::optional<std::uint32_t> selectedEntity_;
@@ -55,12 +80,21 @@ private:
     int viewportHeight_ = 1;
     bool resetLayoutRequested_ = true;
     bool playing_ = false;
+    bool inventoryOpen_ = false;
+    bool craftingTableOpen_ = false;
     bool viewportFocusRequested_ = false;
     bool wireframe_ = false;
     bool frustumCulling_ = true;
     bool chunkBounds_ = false;
     bool occlusionCulling_ = true;
-    BlockType selectedBlock_ = BlockType::Dirt;
+    Inventory inventory_{};
+    CraftingGrid craftingGrid_{};
+    CraftingTableGrid craftingTableGrid_{};
+    int selectedHotbarSlot_ = 0;
+    std::optional<BlockType> miningBlock_;
+    float miningProgress_ = 0.0f;
+    std::string actionMessage_;
+    float actionMessageSeconds_ = 0.0f;
     std::uint64_t renderedTriangles_ = 0;
     std::uint32_t drawCalls_ = 0;
     std::uint32_t visibleChunks_ = 0;
@@ -75,8 +109,14 @@ private:
     float meshProcessingMilliseconds_ = 0.0f;
     float gpuRenderMilliseconds_ = 0.0f;
     std::optional<std::pair<int, int>> pendingPick_;
+    std::optional<int> pendingInventorySlot_;
+    std::optional<int> pendingCraftingSlot_;
+    std::optional<int> pendingCraftingTableSlot_;
+    bool pendingCraftingOutput_ = false;
     void buildDefaultLayout(unsigned int dockspaceId);
     void drawViewport(unsigned int texture);
+    void drawInventoryOverlay(ImDrawList* drawList, const ImVec2& imageOrigin,
+        const ImVec2& imageSize);
     void drawHierarchy(Scene& scene);
     void drawInspector(Scene& scene);
     void drawStatistics(const Scene& scene, const Time& time);

@@ -158,7 +158,7 @@ bool VoxelWorld::loadChunk(Chunk& chunk) const {
             BlockType type = BlockType::Air;
             stream.read(reinterpret_cast<char*>(&length), sizeof(length));
             stream.read(reinterpret_cast<char*>(&type), sizeof(type));
-            if (length == 0 || type > BlockType::Stone || output + length > blocks.size()) return false;
+            if (length == 0 || !isValidBlockType(type) || output + length > blocks.size()) return false;
             std::fill_n(blocks.begin() + output, length, type);
             output += length;
         }
@@ -166,7 +166,7 @@ bool VoxelWorld::loadChunk(Chunk& chunk) const {
     }
     if (!stream) return false;
     for (const BlockType block : blocks) {
-        if (block > BlockType::Leaves) return false;
+        if (!isValidBlockType(block)) return false;
     }
     return chunk.replaceBlocks(std::move(blocks));
 }

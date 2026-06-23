@@ -15,6 +15,7 @@ public:
     void update(const Window& window, EditorCamera& camera, const Renderer& renderer,
         const Scene& scene, float deltaTime);
     bool active() const { return active_; }
+    glm::vec3 feetPosition() const { return feetPosition_; }
     glm::vec3 boundsMin() const;
     glm::vec3 boundsMax() const;
 

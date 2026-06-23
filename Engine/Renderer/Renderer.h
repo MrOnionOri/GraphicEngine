@@ -36,12 +36,31 @@ struct RendererStats {
 
 class Renderer {
 public:
+    enum class TerrainEditResult {
+        Success,
+        NoTarget,
+        MissingWorld,
+        TargetOccupied,
+        IntersectsForbiddenBounds
+    };
+
+    struct TerrainBlockTarget {
+        std::uint32_t entityId = 0;
+        glm::ivec3 block{0};
+        BlockType type = BlockType::Air;
+    };
+
     Renderer();
     ~Renderer();
     void render(const Scene& scene, const EditorCamera& camera, float aspectRatio,
         float frameMilliseconds);
     bool editTerrain(const Scene& scene, const EditorCamera& camera, bool placeBlock,
         BlockType placedBlock, const glm::vec3& forbiddenMin, const glm::vec3& forbiddenMax);
+    TerrainEditResult editTerrainDetailed(const Scene& scene, const EditorCamera& camera,
+        bool placeBlock, BlockType placedBlock, const glm::vec3& forbiddenMin,
+        const glm::vec3& forbiddenMax);
+    std::optional<TerrainBlockTarget> terrainTargetBlock(const Scene& scene,
+        const EditorCamera& camera) const;
     bool isSolidAtWorld(const Scene& scene, const glm::vec3& worldPosition) const;
     std::optional<glm::vec3> terrainSpawnPoint(const Scene& scene) const;
     void setWireframe(bool enabled) { wireframe_ = enabled; }

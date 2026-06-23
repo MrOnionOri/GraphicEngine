@@ -6,18 +6,6 @@
 namespace Engine {
 
 namespace {
-int textureTile(BlockType block, int faceIndex) {
-    if (block == BlockType::Grass) {
-        if (faceIndex == 5) return 0;
-        if (faceIndex == 4) return 1;
-        return 3;
-    }
-    if (block == BlockType::Dirt) return 1;
-    if (block == BlockType::Stone) return 2;
-    if (block == BlockType::Wood) return 4;
-    return 5;
-}
-
 struct FaceCell {
     int tile = 0;
     bool positive = false;
@@ -121,7 +109,7 @@ ChunkMeshData ChunkMeshBuilder::build(const ChunkMeshSnapshot& snapshot) {
                     if (cell.visible) {
                         cell.positive = firstSolid;
                         const BlockType surfaceBlock = firstSolid ? first : second;
-                        cell.tile = textureTile(surfaceBlock, faceIndex(axis, cell.positive));
+                        cell.tile = blockTextureTile(surfaceBlock, faceIndex(axis, cell.positive));
                     }
                 }
             }

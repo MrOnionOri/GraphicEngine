@@ -32,8 +32,16 @@ struct VoxelGridComponent {
 };
 
 struct VoxelTerrainComponent {
+    enum class PerformanceProfile {
+        Safe = 0,
+        Balanced = 1,
+        Turbo = 2,
+        Extreme = 3
+    };
+
     int seed = 1337;
     int viewRadius = 1;
+    PerformanceProfile performanceProfile = PerformanceProfile::Balanced;
     int meshWorkers = 0;
     int meshUploadsPerFrame = 2;
     int meshQueueLimit = 16;
