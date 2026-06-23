@@ -39,9 +39,23 @@ public:
     }
     bool inventoryOpen() const { return inventoryOpen_; }
     bool craftingTableOpen() const { return craftingTableOpen_; }
-    void toggleInventory() { inventoryOpen_ = playing_ && !inventoryOpen_; craftingTableOpen_ = false; }
-    void openCraftingTable() { inventoryOpen_ = playing_; craftingTableOpen_ = inventoryOpen_; }
-    void closeInventory() { inventoryOpen_ = false; craftingTableOpen_ = false; }
+    bool furnaceOpen() const { return furnaceOpen_; }
+    void toggleInventory() {
+        inventoryOpen_ = playing_ && !inventoryOpen_;
+        craftingTableOpen_ = false;
+        furnaceOpen_ = false;
+    }
+    void openCraftingTable() {
+        inventoryOpen_ = playing_;
+        craftingTableOpen_ = inventoryOpen_;
+        furnaceOpen_ = false;
+    }
+    void openFurnace() {
+        inventoryOpen_ = playing_;
+        furnaceOpen_ = inventoryOpen_;
+        craftingTableOpen_ = false;
+    }
+    void closeInventory() { inventoryOpen_ = false; craftingTableOpen_ = false; furnaceOpen_ = false; }
     bool wireframe() const { return wireframe_; }
     void toggleWireframe() { wireframe_ = !wireframe_; }
     bool frustumCulling() const { return frustumCulling_; }
@@ -64,10 +78,25 @@ public:
     }
     void setCraftingGrid(const CraftingGrid& craftingGrid) { craftingGrid_ = craftingGrid; }
     void setCraftingTableGrid(const CraftingTableGrid& grid) { craftingTableGrid_ = grid; }
+    void setFurnaceSlots(const InventorySlot& input, const InventorySlot& fuel,
+        const InventorySlot& output, float progress, float burnRatio) {
+        furnaceInput_ = input;
+        furnaceFuel_ = fuel;
+        furnaceOutput_ = output;
+        furnaceProgress_ = progress;
+        furnaceBurnRatio_ = burnRatio;
+    }
+    void setCursorItem(const InventorySlot& cursorItem) { cursorItem_ = cursorItem; }
     std::optional<int> consumePendingInventorySlot();
     std::optional<int> consumePendingCraftingSlot();
     std::optional<int> consumePendingCraftingTableSlot();
     bool consumePendingCraftingOutput();
+    std::optional<int> consumePendingRightInventorySlot();
+    std::optional<int> consumePendingRightCraftingSlot();
+    std::optional<int> consumePendingRightCraftingTableSlot();
+    bool consumePendingRightCraftingOutput();
+    std::optional<int> consumePendingFurnaceSlot();
+    std::optional<int> consumePendingRightFurnaceSlot();
     void setMiningProgress(BlockType block, float progress);
     void clearMiningProgress();
     void showActionMessage(std::string message);
@@ -82,6 +111,7 @@ private:
     bool playing_ = false;
     bool inventoryOpen_ = false;
     bool craftingTableOpen_ = false;
+    bool furnaceOpen_ = false;
     bool viewportFocusRequested_ = false;
     bool wireframe_ = false;
     bool frustumCulling_ = true;
@@ -90,6 +120,12 @@ private:
     Inventory inventory_{};
     CraftingGrid craftingGrid_{};
     CraftingTableGrid craftingTableGrid_{};
+    InventorySlot furnaceInput_{};
+    InventorySlot furnaceFuel_{};
+    InventorySlot furnaceOutput_{};
+    float furnaceProgress_ = 0.0f;
+    float furnaceBurnRatio_ = 0.0f;
+    InventorySlot cursorItem_{};
     int selectedHotbarSlot_ = 0;
     std::optional<BlockType> miningBlock_;
     float miningProgress_ = 0.0f;
@@ -113,6 +149,12 @@ private:
     std::optional<int> pendingCraftingSlot_;
     std::optional<int> pendingCraftingTableSlot_;
     bool pendingCraftingOutput_ = false;
+    std::optional<int> pendingRightInventorySlot_;
+    std::optional<int> pendingRightCraftingSlot_;
+    std::optional<int> pendingRightCraftingTableSlot_;
+    bool pendingRightCraftingOutput_ = false;
+    std::optional<int> pendingFurnaceSlot_;
+    std::optional<int> pendingRightFurnaceSlot_;
     void buildDefaultLayout(unsigned int dockspaceId);
     void drawViewport(unsigned int texture);
     void drawInventoryOverlay(ImDrawList* drawList, const ImVec2& imageOrigin,

@@ -134,6 +134,10 @@ void Chunk::generate(int seed) {
             const int surface = terrainHeight(worldX, worldZ, seed);
             const Biome biome = biomeAt(worldX, worldZ, seed);
             for (int y = 0; y <= surface; ++y) {
+                if (y == 0) {
+                    setBlock(x, y, z, BlockType::Bedrock);
+                    continue;
+                }
                 if (y > 1 && y < surface - 3) {
                     const float broadCave = valueNoise3D(worldX * 0.075f, y * 0.095f,
                         worldZ * 0.075f, seed + 15485863);
@@ -147,6 +151,13 @@ void Chunk::generate(int seed) {
                 else if (y == surface) type = BlockType::Grass;
                 else if (y >= surface - 3) type = BlockType::Dirt;
 
+                const float gravelPatch = valueNoise3D(worldX * 0.21f, y * 0.31f,
+                    worldZ * 0.21f, seed + 67867967);
+                if (y >= surface - 5 && y <= surface - 1 && biome != Biome::Desert
+                    && gravelPatch > 0.86f) {
+                    type = BlockType::Gravel;
+                }
+
                 if (type == BlockType::Stone && y > 3 && y < surface - 4) {
                     const float ore = valueNoise3D(worldX * 0.29f, y * 0.41f,
                         worldZ * 0.29f, seed + 982451653);
@@ -154,6 +165,12 @@ void Chunk::generate(int seed) {
                         worldZ * 0.53f, seed + 433494437);
                     if (ore * 0.75f + oreShape * 0.25f > 0.87f)
                         type = BlockType::CoalOre;
+                    const float iron = valueNoise3D(worldX * 0.25f, y * 0.33f,
+                        worldZ * 0.25f, seed + 8675309);
+                    const float ironShape = valueNoise3D(worldX * 0.49f, y * 0.57f,
+                        worldZ * 0.49f, seed + 314159);
+                    if (y < surface - 8 && iron * 0.70f + ironShape * 0.30f > 0.885f)
+                        type = BlockType::IronOre;
                 }
                 setBlock(x, y, z, type);
             }

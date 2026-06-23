@@ -141,11 +141,26 @@ void EditorLayer::drawViewport(unsigned int texture) {
                     drawList->AddText({maximum.x - countSize.x - 5.0f, maximum.y - countSize.y - 3.0f},
                         IM_COL32(255, 255, 255, 255), countText.c_str());
                 }
+                if (!empty && itemUsesDurability(inventorySlot.itemId)) {
+                    const float durabilityRatio = static_cast<float>(inventorySlot.durability)
+                        / static_cast<float>(itemMaxDurability(inventorySlot.itemId));
+                    const ImVec2 barMin{minimum.x + 5.0f, maximum.y - 7.0f};
+                    const ImVec2 barMax{maximum.x - 5.0f, maximum.y - 4.0f};
+                    drawList->AddRectFilled(barMin, barMax, IM_COL32(40, 42, 48, 255), 1.0f);
+                    drawList->AddRectFilled(barMin,
+                        {barMin.x + (barMax.x - barMin.x) * durabilityRatio, barMax.y},
+                        durabilityRatio > 0.35f ? IM_COL32(80, 220, 90, 255) : IM_COL32(235, 90, 65, 255),
+                        1.0f);
+                }
                 if (selected && !empty) {
-                    const char* name = itemName(inventorySlot.itemId);
-                    const ImVec2 textSize = ImGui::CalcTextSize(name);
+                    std::string label = itemName(inventorySlot.itemId);
+                    if (itemUsesDurability(inventorySlot.itemId)) {
+                        label += " " + std::to_string(inventorySlot.durability)
+                            + "/" + std::to_string(itemMaxDurability(inventorySlot.itemId));
+                    }
+                    const ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
                     drawList->AddText({minimum.x + (slotSize - textSize.x) * 0.5f,
-                        minimum.y - textSize.y - 4.0f}, IM_COL32(255, 238, 120, 255), name);
+                        minimum.y - textSize.y - 4.0f}, IM_COL32(255, 238, 120, 255), label.c_str());
                 }
             }
         }
@@ -212,6 +227,42 @@ bool EditorLayer::consumePendingCraftingOutput() {
     return result;
 }
 
+std::optional<int> EditorLayer::consumePendingRightInventorySlot() {
+    auto result = pendingRightInventorySlot_;
+    pendingRightInventorySlot_.reset();
+    return result;
+}
+
+std::optional<int> EditorLayer::consumePendingRightCraftingSlot() {
+    auto result = pendingRightCraftingSlot_;
+    pendingRightCraftingSlot_.reset();
+    return result;
+}
+
+std::optional<int> EditorLayer::consumePendingRightCraftingTableSlot() {
+    auto result = pendingRightCraftingTableSlot_;
+    pendingRightCraftingTableSlot_.reset();
+    return result;
+}
+
+bool EditorLayer::consumePendingRightCraftingOutput() {
+    const bool result = pendingRightCraftingOutput_;
+    pendingRightCraftingOutput_ = false;
+    return result;
+}
+
+std::optional<int> EditorLayer::consumePendingFurnaceSlot() {
+    auto result = pendingFurnaceSlot_;
+    pendingFurnaceSlot_.reset();
+    return result;
+}
+
+std::optional<int> EditorLayer::consumePendingRightFurnaceSlot() {
+    auto result = pendingRightFurnaceSlot_;
+    pendingRightFurnaceSlot_.reset();
+    return result;
+}
+
 void EditorLayer::selectEntity(std::uint32_t entityId) {
     if (entityId == 0) selectedEntity_.reset();
     else selectedEntity_ = entityId;
@@ -239,7 +290,7 @@ void EditorLayer::drawInventoryOverlay(ImDrawList* drawList, const ImVec2& image
     constexpr float padding = 18.0f;
     constexpr int columns = InventoryHotbarSlots;
     constexpr float panelWidth = padding * 2.0f + slotSize * columns + gap * (columns - 1);
-    constexpr float panelHeight = 520.0f;
+    const float panelHeight = (craftingTableOpen_ || furnaceOpen_) ? 620.0f : 520.0f;
     const ImVec2 panelMin{imageOrigin.x + (imageSize.x - panelWidth) * 0.5f,
         imageOrigin.y + (imageSize.y - panelHeight) * 0.5f};
     const ImVec2 panelMax{panelMin.x + panelWidth, panelMin.y + panelHeight};
@@ -251,8 +302,9 @@ void EditorLayer::drawInventoryOverlay(ImDrawList* drawList, const ImVec2& image
     drawList->AddText({panelMin.x + padding, panelMin.y + 11.0f},
         IM_COL32(255, 238, 120, 255), "Inventario  (E para cerrar)");
 
-    const auto clickInside = [](const ImVec2& minimum, const ImVec2& maximum) {
-        if (!ImGui::IsMouseClicked(ImGuiMouseButton_Left)) return false;
+    const auto clickInside = [](const ImVec2& minimum, const ImVec2& maximum,
+        ImGuiMouseButton button) {
+        if (!ImGui::IsMouseClicked(button)) return false;
         const ImVec2 mouse = ImGui::GetMousePos();
         return mouse.x >= minimum.x && mouse.x <= maximum.x
             && mouse.y >= minimum.y && mouse.y <= maximum.y;
@@ -277,17 +329,76 @@ void EditorLayer::drawInventoryOverlay(ImDrawList* drawList, const ImVec2& image
             drawList->AddText({maximum.x - countSize.x - 5.0f, maximum.y - countSize.y - 4.0f},
                 IM_COL32(255, 255, 255, 255), count.c_str());
         }
+        if (!empty && itemUsesDurability(inventorySlot.itemId)) {
+            const float durabilityRatio = static_cast<float>(inventorySlot.durability)
+                / static_cast<float>(itemMaxDurability(inventorySlot.itemId));
+            const ImVec2 barMin{minimum.x + 6.0f, maximum.y - 8.0f};
+            const ImVec2 barMax{maximum.x - 6.0f, maximum.y - 5.0f};
+            drawList->AddRectFilled(barMin, barMax, IM_COL32(40, 42, 48, 255), 1.0f);
+            drawList->AddRectFilled(barMin,
+                {barMin.x + (barMax.x - barMin.x) * durabilityRatio, barMax.y},
+                durabilityRatio > 0.35f ? IM_COL32(80, 220, 90, 255) : IM_COL32(235, 90, 65, 255),
+                1.0f);
+        }
         if (label && label[0] != '\0')
             drawList->AddText({minimum.x + 5.0f, minimum.y + 3.0f},
                 IM_COL32(255, 255, 255, 235), label);
     };
 
-    drawList->AddText({panelMin.x + padding, panelMin.y + 44.0f},
-        IM_COL32(210, 214, 225, 255), craftingTableOpen_ ? "Crafting Table 3x3" : "Crafting 2x2");
     const float craftX = panelMin.x + padding;
     const float craftY = panelMin.y + 68.0f;
     constexpr float craftSlotSize = 44.0f;
     constexpr float craftGap = 6.0f;
+    if (furnaceOpen_) {
+        drawList->AddText({panelMin.x + padding, panelMin.y + 44.0f},
+            IM_COL32(210, 214, 225, 255), "Furnace");
+        const ImVec2 inputMin{craftX, craftY};
+        const ImVec2 inputMax{inputMin.x + craftSlotSize, inputMin.y + craftSlotSize};
+        const ImVec2 fuelMin{craftX, craftY + craftSlotSize + 16.0f};
+        const ImVec2 fuelMax{fuelMin.x + craftSlotSize, fuelMin.y + craftSlotSize};
+        const ImVec2 outputMin{craftX + 205.0f, craftY + 42.0f};
+        const ImVec2 outputMax{outputMin.x + craftSlotSize, outputMin.y + craftSlotSize};
+
+        drawItemBox(furnaceInput_, inputMin, inputMax, false, "");
+        drawItemBox(furnaceFuel_, fuelMin, fuelMax, false, "");
+        drawItemBox(furnaceOutput_, outputMin, outputMax, !furnaceOutput_.empty(), "");
+        if (clickInside(inputMin, inputMax, ImGuiMouseButton_Left)) pendingFurnaceSlot_ = 0;
+        if (clickInside(inputMin, inputMax, ImGuiMouseButton_Right)) pendingRightFurnaceSlot_ = 0;
+        if (clickInside(fuelMin, fuelMax, ImGuiMouseButton_Left)) pendingFurnaceSlot_ = 1;
+        if (clickInside(fuelMin, fuelMax, ImGuiMouseButton_Right)) pendingRightFurnaceSlot_ = 1;
+        if (clickInside(outputMin, outputMax, ImGuiMouseButton_Left)) pendingFurnaceSlot_ = 2;
+        if (clickInside(outputMin, outputMax, ImGuiMouseButton_Right)) pendingRightFurnaceSlot_ = 2;
+
+        drawList->AddText({craftX + 72.0f, craftY + 18.0f},
+            IM_COL32(255, 238, 120, 255), "Input");
+        drawList->AddText({craftX + 72.0f, craftY + craftSlotSize + 34.0f},
+            IM_COL32(255, 150, 80, 255), "Fuel");
+        drawList->AddText({craftX + 165.0f, craftY + 48.0f}, IM_COL32(255, 238, 120, 255), "=>");
+
+        const ImVec2 progressMin{craftX + 82.0f, craftY + 58.0f};
+        const ImVec2 progressMax{craftX + 176.0f, craftY + 68.0f};
+        drawList->AddRectFilled(progressMin, progressMax, IM_COL32(42, 45, 52, 255), 3.0f);
+        drawList->AddRectFilled(progressMin,
+            {progressMin.x + (progressMax.x - progressMin.x) * std::clamp(furnaceProgress_, 0.0f, 1.0f),
+             progressMax.y},
+            IM_COL32(255, 206, 80, 255), 3.0f);
+        const ImVec2 burnMin{fuelMin.x + 8.0f, fuelMax.y + 8.0f};
+        const ImVec2 burnMax{fuelMax.x - 8.0f, fuelMax.y + 15.0f};
+        drawList->AddRectFilled(burnMin, burnMax, IM_COL32(42, 45, 52, 255), 2.0f);
+        drawList->AddRectFilled(burnMin,
+            {burnMin.x + (burnMax.x - burnMin.x) * std::clamp(furnaceBurnRatio_, 0.0f, 1.0f),
+             burnMax.y},
+            IM_COL32(255, 98, 42, 255), 2.0f);
+
+        drawList->AddText({outputMin.x + craftSlotSize + 16.0f, craftY + 8.0f},
+            IM_COL32(170, 178, 195, 255),
+            "Smelting: Iron Ore -> Iron Ingot | Sand -> Glass");
+        drawList->AddText({outputMin.x + craftSlotSize + 16.0f, craftY + 28.0f},
+            IM_COL32(170, 178, 195, 255),
+            "Fuel: Coal Ore, Wood, Planks");
+    } else {
+    drawList->AddText({panelMin.x + padding, panelMin.y + 44.0f},
+        IM_COL32(210, 214, 225, 255), craftingTableOpen_ ? "Crafting Table 3x3" : "Crafting 2x2");
     if (craftingTableOpen_) {
         for (int slot = 0; slot < CraftingTableGridSlots; ++slot) {
             const int x = slot % 3;
@@ -296,7 +407,8 @@ void EditorLayer::drawInventoryOverlay(ImDrawList* drawList, const ImVec2& image
                 craftY + y * (craftSlotSize + craftGap)};
             const ImVec2 maximum{minimum.x + craftSlotSize, minimum.y + craftSlotSize};
             drawItemBox(craftingTableGrid_.slots[slot], minimum, maximum, false, "");
-            if (clickInside(minimum, maximum)) pendingCraftingTableSlot_ = slot;
+            if (clickInside(minimum, maximum, ImGuiMouseButton_Left)) pendingCraftingTableSlot_ = slot;
+            if (clickInside(minimum, maximum, ImGuiMouseButton_Right)) pendingRightCraftingTableSlot_ = slot;
         }
     } else {
         for (int slot = 0; slot < CraftingGridSlots; ++slot) {
@@ -306,7 +418,8 @@ void EditorLayer::drawInventoryOverlay(ImDrawList* drawList, const ImVec2& image
                 craftY + y * (craftSlotSize + craftGap)};
             const ImVec2 maximum{minimum.x + craftSlotSize, minimum.y + craftSlotSize};
             drawItemBox(craftingGrid_.slots[slot], minimum, maximum, false, "");
-            if (clickInside(minimum, maximum)) pendingCraftingSlot_ = slot;
+            if (clickInside(minimum, maximum, ImGuiMouseButton_Left)) pendingCraftingSlot_ = slot;
+            if (clickInside(minimum, maximum, ImGuiMouseButton_Right)) pendingRightCraftingSlot_ = slot;
         }
     }
     drawList->AddText({craftX + 165.0f, craftY + 48.0f}, IM_COL32(255, 238, 120, 255), "=>");
@@ -315,20 +428,61 @@ void EditorLayer::drawInventoryOverlay(ImDrawList* drawList, const ImVec2& image
     const ImVec2 outputMin{craftX + 205.0f, craftY + 42.0f};
     const ImVec2 outputMax{outputMin.x + craftSlotSize, outputMin.y + craftSlotSize};
     drawItemBox(result.valid ? result.output : InventorySlot{}, outputMin, outputMax, result.valid, "");
-    if (result.valid && clickInside(outputMin, outputMax)) pendingCraftingOutput_ = true;
+    if (result.valid && clickInside(outputMin, outputMax, ImGuiMouseButton_Left)) pendingCraftingOutput_ = true;
+    if (result.valid && clickInside(outputMin, outputMax, ImGuiMouseButton_Right)) pendingRightCraftingOutput_ = true;
+    drawList->AddText({outputMin.x + craftSlotSize + 16.0f, craftY + 8.0f},
+        IM_COL32(170, 178, 195, 255), craftingTableOpen_
+            ? "Recetas: wood->planks | 2 planks vertical->sticks | pico: 3 planks + 2 sticks"
+            : "Recetas: wood->planks | 2 planks vertical->sticks | 4 planks->table");
 
-    drawList->AddText({panelMin.x + padding, panelMin.y + 164.0f},
+    const float bookX = outputMin.x + craftSlotSize + 16.0f;
+    float bookY = craftY + 34.0f;
+    drawList->AddText({bookX, bookY}, IM_COL32(255, 238, 120, 255), "Recipe Book");
+    bookY += 18.0f;
+    int recipeIndex = 1;
+    for (const CraftingRecipe& recipe : craftingRecipes()) {
+        if (recipe.requiresTable && !craftingTableOpen_) continue;
+        if (!craftingTableOpen_ && (recipe.width > 2 || recipe.height > 2)) continue;
+        const std::string line = std::to_string(recipeIndex++) + ". "
+            + itemName(recipe.output.itemId) + " x" + std::to_string(recipe.output.count);
+        drawList->AddText({bookX, bookY}, IM_COL32(210, 214, 225, 255), line.c_str());
+        bookY += 15.0f;
+        for (int y = 0; y < recipe.height; ++y) {
+            std::string row;
+            for (int x = 0; x < recipe.width; ++x) {
+                const int itemId = recipe.pattern[y * recipe.width + x];
+                char glyph = '.';
+                if (itemId == blockItemId(BlockType::Wood)) glyph = 'W';
+                else if (itemId == blockItemId(BlockType::Planks)) glyph = 'P';
+                else if (itemId == blockItemId(BlockType::Cobblestone)) glyph = 'C';
+                else if (itemId == StickItemId) glyph = 'S';
+                else if (itemId == blockItemId(BlockType::Stone)) glyph = 'R';
+                row.push_back(glyph);
+                if (x + 1 < recipe.width) row.push_back(' ');
+            }
+            drawList->AddText({bookX + 12.0f, bookY}, IM_COL32(160, 168, 185, 255), row.c_str());
+            bookY += 13.0f;
+        }
+        bookY += 3.0f;
+        if (bookY > panelMax.y - 75.0f) break;
+    }
+    }
+
+    const float backpackLabelY = (craftingTableOpen_ || furnaceOpen_) ? 238.0f : 164.0f;
+    const float backpackSlotsY = backpackLabelY + 24.0f;
+    drawList->AddText({panelMin.x + padding, panelMin.y + backpackLabelY},
         IM_COL32(210, 214, 225, 255), "Mochila");
 
     const auto drawSlot = [&](int slotIndex, int column, float row, bool hotbar) {
         const InventorySlot& inventorySlot = inventory_.slots[slotIndex];
         const ImVec2 minimum{panelMin.x + padding + column * (slotSize + gap),
-            panelMin.y + 188.0f + row * (slotSize + gap)};
+            panelMin.y + backpackSlotsY + row * (slotSize + gap)};
         const ImVec2 maximum{minimum.x + slotSize, minimum.y + slotSize};
         const bool selected = hotbar && selectedHotbarSlot_ == column;
         const std::string label = hotbar ? std::to_string(column + 1) : "";
         drawItemBox(inventorySlot, minimum, maximum, selected, label.c_str());
-        if (clickInside(minimum, maximum)) pendingInventorySlot_ = slotIndex;
+        if (clickInside(minimum, maximum, ImGuiMouseButton_Left)) pendingInventorySlot_ = slotIndex;
+        if (clickInside(minimum, maximum, ImGuiMouseButton_Right)) pendingRightInventorySlot_ = slotIndex;
     };
 
     for (int row = 0; row < 3; ++row) {
@@ -343,15 +497,33 @@ void EditorLayer::drawInventoryOverlay(ImDrawList* drawList, const ImVec2& image
 
     const InventorySlot& selectedSlot = inventory_.slots[selectedHotbarSlot_];
     if (!selectedSlot.empty()) {
-        const char* name = itemName(selectedSlot.itemId);
-        const ImVec2 nameSize = ImGui::CalcTextSize(name);
+        std::string name = itemName(selectedSlot.itemId);
+        if (itemUsesDurability(selectedSlot.itemId)) {
+            name += " " + std::to_string(selectedSlot.durability)
+                + "/" + std::to_string(itemMaxDurability(selectedSlot.itemId));
+        }
+        const ImVec2 nameSize = ImGui::CalcTextSize(name.c_str());
         drawList->AddText({panelMin.x + (panelWidth - nameSize.x) * 0.5f, panelMax.y - 62.0f},
-            IM_COL32(255, 238, 120, 255), name);
+            IM_COL32(255, 238, 120, 255), name.c_str());
     }
 
     drawList->AddText({panelMin.x + padding, panelMax.y - 30.0f},
         IM_COL32(170, 178, 195, 255),
-        "Click mochila/crafting: intercambia con hotbar activa | Output: craftea | 1-9 selecciona");
+        "Izq: mueve stack | Der: toma mitad / suelta 1 | Output: craftea al cursor");
+
+    if (!cursorItem_.empty()) {
+        const ImVec2 mouse = ImGui::GetMousePos();
+        const ImVec2 minimum{mouse.x + 12.0f, mouse.y + 12.0f};
+        const ImVec2 maximum{minimum.x + 42.0f, minimum.y + 42.0f};
+        drawItemBox(cursorItem_, minimum, maximum, false, "");
+        std::string name = itemName(cursorItem_.itemId);
+        if (itemUsesDurability(cursorItem_.itemId)) {
+            name += " " + std::to_string(cursorItem_.durability)
+                + "/" + std::to_string(itemMaxDurability(cursorItem_.itemId));
+        }
+        drawList->AddText({minimum.x, maximum.y + 4.0f},
+            IM_COL32(255, 238, 120, 255), name.c_str());
+    }
 }
 
 void EditorLayer::setRendererStats(std::uint64_t triangles, std::uint32_t drawCalls,

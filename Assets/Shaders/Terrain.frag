@@ -16,9 +16,12 @@ void main() {
     vec2 tiledUv = fract(vTexCoord);
     // Sample only texel centers inside a 16x16 tile. This prevents a greedy quad
     // from borrowing pixels from the neighboring atlas tile at repeat boundaries.
+    const float tileCount = 17.0;
+    const float tileSize = 16.0;
+    const float atlasWidth = tileCount * tileSize;
     vec2 atlasUv = vec2(
-        vTextureIndex / 10.0 + (0.5 + tiledUv.x * 15.0) / 160.0,
-        (0.5 + tiledUv.y * 15.0) / 16.0);
+        vTextureIndex / tileCount + (0.5 + tiledUv.x * (tileSize - 1.0)) / atlasWidth,
+        (0.5 + tiledUv.y * (tileSize - 1.0)) / tileSize);
     vec3 albedo = texture(uTexture, atlasUv).rgb;
     float diffuse = max(dot(normalize(vNormal), normalize(-uLightDirection)), 0.0);
     color = vec4(albedo * (0.20 + uLightColor * diffuse * uLightIntensity), 1.0);

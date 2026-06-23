@@ -40,6 +40,37 @@ PlayerSaveData loadPlayerSave(int seed) {
     std::string header;
     int selectedSlot = 1;
     if (!(stream >> header)) return data;
+    if (header == "GEPLAYER3") {
+        if (!(stream >> data.feetPosition.x >> data.feetPosition.y >> data.feetPosition.z
+            >> selectedSlot)) return data;
+        for (int slot = 0; slot < InventorySlots; ++slot) {
+            int itemId = 0;
+            int count = 0;
+            int durability = 0;
+            if (!(stream >> itemId >> count >> durability)) return data;
+            data.inventory.slots[slot] = InventorySlot{itemId, count, durability};
+        }
+        for (int slot = 0; slot < CraftingGridSlots; ++slot) {
+            int itemId = 0;
+            int count = 0;
+            int durability = 0;
+            if (!(stream >> itemId >> count >> durability)) break;
+            data.craftingGrid.slots[slot] = InventorySlot{itemId, count, durability};
+        }
+        for (int slot = 0; slot < CraftingTableGridSlots; ++slot) {
+            int itemId = 0;
+            int count = 0;
+            int durability = 0;
+            if (!(stream >> itemId >> count >> durability)) break;
+            data.craftingTableGrid.slots[slot] = InventorySlot{itemId, count, durability};
+        }
+        normalizeInventory(data.inventory);
+        for (InventorySlot& slot : data.craftingGrid.slots) normalizeInventorySlot(slot);
+        for (InventorySlot& slot : data.craftingTableGrid.slots) normalizeInventorySlot(slot);
+        data.selectedHotbarSlot = std::clamp(selectedSlot, 0, InventoryHotbarSlots - 1);
+        data.valid = true;
+        return data;
+    }
     if (header == "GEPLAYER2") {
         if (!(stream >> data.feetPosition.x >> data.feetPosition.y >> data.feetPosition.z
             >> selectedSlot)) return data;
@@ -47,19 +78,19 @@ PlayerSaveData loadPlayerSave(int seed) {
             int itemId = 0;
             int count = 0;
             if (!(stream >> itemId >> count)) return data;
-            data.inventory.slots[slot] = InventorySlot{itemId, count};
+            data.inventory.slots[slot] = InventorySlot{itemId, count, 0};
         }
         for (int slot = 0; slot < CraftingGridSlots; ++slot) {
             int itemId = 0;
             int count = 0;
             if (!(stream >> itemId >> count)) break;
-            data.craftingGrid.slots[slot] = InventorySlot{itemId, count};
+            data.craftingGrid.slots[slot] = InventorySlot{itemId, count, 0};
         }
         for (int slot = 0; slot < CraftingTableGridSlots; ++slot) {
             int itemId = 0;
             int count = 0;
             if (!(stream >> itemId >> count)) break;
-            data.craftingTableGrid.slots[slot] = InventorySlot{itemId, count};
+            data.craftingTableGrid.slots[slot] = InventorySlot{itemId, count, 0};
         }
         normalizeInventory(data.inventory);
         for (InventorySlot& slot : data.craftingGrid.slots) normalizeInventorySlot(slot);
@@ -75,7 +106,7 @@ PlayerSaveData loadPlayerSave(int seed) {
             int count = 0;
             if (!(stream >> count)) return data;
             data.inventory.slots[slot] = InventorySlot{
-                blockItemId(placeableBlock(slot)), std::clamp(count, 0, InventoryMaxStack)};
+                blockItemId(placeableBlock(slot)), std::clamp(count, 0, InventoryMaxStack), 0};
         }
         normalizeInventory(data.inventory);
         data.selectedHotbarSlot = std::clamp(selectedSlot - 1, 0, InventoryHotbarSlots - 1);
@@ -93,23 +124,26 @@ void savePlayerState(int seed, const PlayerController& player,
     std::ofstream stream(path, std::ios::trunc);
     if (!stream) return;
     const glm::vec3 feet = player.feetPosition();
-    stream << "GEPLAYER2\n";
+    stream << "GEPLAYER3\n";
     stream << feet.x << ' ' << feet.y << ' ' << feet.z << ' '
         << std::clamp(selectedHotbarSlot, 0, InventoryHotbarSlots - 1) << '\n';
     for (int slot = 0; slot < InventorySlots; ++slot) {
         const InventorySlot& item = inventory.slots[slot];
         stream << (item.empty() ? 0 : item.itemId)
-            << ' ' << (item.empty() ? 0 : item.count) << '\n';
+            << ' ' << (item.empty() ? 0 : item.count)
+            << ' ' << (item.empty() ? 0 : item.durability) << '\n';
     }
     for (int slot = 0; slot < CraftingGridSlots; ++slot) {
         const InventorySlot& item = craftingGrid.slots[slot];
         stream << (item.empty() ? 0 : item.itemId)
-            << ' ' << (item.empty() ? 0 : item.count) << '\n';
+            << ' ' << (item.empty() ? 0 : item.count)
+            << ' ' << (item.empty() ? 0 : item.durability) << '\n';
     }
     for (int slot = 0; slot < CraftingTableGridSlots; ++slot) {
         const InventorySlot& item = craftingTableGrid.slots[slot];
         stream << (item.empty() ? 0 : item.itemId)
-            << ' ' << (item.empty() ? 0 : item.count) << '\n';
+            << ' ' << (item.empty() ? 0 : item.count)
+            << ' ' << (item.empty() ? 0 : item.durability) << '\n';
     }
 }
 }
@@ -132,6 +166,13 @@ void Application::run() {
     Inventory inventory = createStarterInventory();
     CraftingGrid craftingGrid;
     CraftingTableGrid craftingTableGrid;
+    InventorySlot furnaceInput;
+    InventorySlot furnaceFuel;
+    InventorySlot furnaceOutput;
+    float furnaceProgress = 0.0f;
+    float furnaceBurnSeconds = 0.0f;
+    float furnaceBurnCapacitySeconds = 0.0f;
+    InventorySlot cursorItem;
     int selectedHotbarSlot = 1;
     std::optional<int> activeSaveSeed;
     double nextAutosaveTime = 0.0;
@@ -147,10 +188,25 @@ void Application::run() {
         editor_.setInventory(inventory, selectedHotbarSlot);
         editor_.setCraftingGrid(craftingGrid);
         editor_.setCraftingTableGrid(craftingTableGrid);
+        editor_.setFurnaceSlots(furnaceInput, furnaceFuel, furnaceOutput,
+            furnaceProgress,
+            furnaceBurnCapacitySeconds > 0.0f
+                ? furnaceBurnSeconds / furnaceBurnCapacitySeconds : 0.0f);
+        editor_.setCursorItem(cursorItem);
         editor_.draw(scene_, time_, viewportFramebuffer_.colorAttachment());
+        const auto stashCursorItem = [&]() {
+            if (cursorItem.empty()) return true;
+            if (addToInventory(inventory, cursorItem)) {
+                cursorItem = {};
+                return true;
+            }
+            editor_.showActionMessage("Inventario lleno");
+            return false;
+        };
         const bool f5 = Input::keyPressed(window_, GLFW_KEY_F5);
         if (f5 && !previousF5) {
             if (editor_.playing()) {
+                stashCursorItem();
                 if (activeSaveSeed) savePlayerState(*activeSaveSeed, player_, inventory,
                     craftingGrid, craftingTableGrid, selectedHotbarSlot);
                 activeSaveSeed.reset();
@@ -173,10 +229,14 @@ void Application::run() {
         const bool eKey = Input::keyPressed(window_, GLFW_KEY_E);
         if (eKey && !previousE && editor_.playing()) {
             if (editor_.inventoryOpen()) {
-                editor_.closeInventory();
-            } else if (const auto target = renderer_.terrainTargetBlock(scene_, camera_);
-                target && target->type == BlockType::CraftingTable) {
-                editor_.openCraftingTable();
+                if (stashCursorItem()) editor_.closeInventory();
+            } else if (const auto target = renderer_.terrainTargetBlock(scene_, camera_)) {
+                if (target->type == BlockType::CraftingTable)
+                    editor_.openCraftingTable();
+                else if (target->type == BlockType::Furnace)
+                    editor_.openFurnace();
+                else
+                    editor_.toggleInventory();
             } else {
                 editor_.toggleInventory();
             }
@@ -185,8 +245,9 @@ void Application::run() {
         const bool escape = Input::keyPressed(window_, GLFW_KEY_ESCAPE);
         if (escape && !previousEscape) {
             if (editor_.inventoryOpen()) {
-                editor_.closeInventory();
+                if (stashCursorItem()) editor_.closeInventory();
             } else if (editor_.playing()) {
+                stashCursorItem();
                 if (activeSaveSeed) savePlayerState(*activeSaveSeed, player_, inventory,
                     craftingGrid, craftingTableGrid, selectedHotbarSlot);
                 activeSaveSeed.reset();
@@ -222,63 +283,126 @@ void Application::run() {
         }
         if (editor_.playing() && !inventoryOpen)
             player_.update(window_, camera_, renderer_, scene_, deltaTime);
+        const auto updateFurnace = [&]() {
+            const SmeltingRecipe recipe = smeltingRecipe(furnaceInput.itemId);
+            const bool canSmelt = !recipe.output.empty()
+                && canSmeltIntoOutput(furnaceInput, furnaceOutput);
+            if (!canSmelt) {
+                furnaceProgress = 0.0f;
+                return;
+            }
+            if (furnaceBurnSeconds <= 0.0f) {
+                const float fuelSeconds = furnaceFuelSeconds(furnaceFuel.itemId);
+                if (fuelSeconds <= 0.0f || furnaceFuel.empty()) return;
+                --furnaceFuel.count;
+                normalizeInventorySlot(furnaceFuel);
+                furnaceBurnSeconds = fuelSeconds;
+                furnaceBurnCapacitySeconds = fuelSeconds;
+            }
+            furnaceBurnSeconds = std::max(0.0f, furnaceBurnSeconds - deltaTime);
+            furnaceProgress += deltaTime / std::max(0.1f, recipe.seconds);
+            if (furnaceProgress >= 1.0f) {
+                --furnaceInput.count;
+                normalizeInventorySlot(furnaceInput);
+                addSmeltingOutput(furnaceOutput, recipe.output);
+                furnaceProgress = 0.0f;
+            }
+        };
+        updateFurnace();
         if (inventoryOpen) {
-            const auto moveSelectedIntoSlot = [&](InventorySlot& craftSlot) {
-                if (craftSlot.empty()) {
-                    InventorySlot& selectedSlot = inventory.slots[selectedHotbarSlot];
-                    if (!selectedSlot.empty()) {
-                        craftSlot = InventorySlot{selectedSlot.itemId, 1};
-                        removeOneFromSlot(inventory, selectedHotbarSlot);
-                    }
-                } else if (addToInventory(inventory, craftSlot.itemId, craftSlot.count)) {
-                    craftSlot = {};
-                } else {
-                    editor_.showActionMessage("Inventario lleno");
+            const auto interactWithSlot = [&](InventorySlot& slot) {
+                if (cursorItem.empty()) {
+                    cursorItem = slot;
+                    slot = {};
+                    return;
                 }
+                if (!moveAllToSlot(slot, cursorItem))
+                    editor_.showActionMessage("No se pudo mover");
+            };
+            const auto interactWithSlotRight = [&](InventorySlot& slot) {
+                if (cursorItem.empty()) {
+                    if (!takeHalfFromSlot(slot, cursorItem))
+                        editor_.showActionMessage("Slot vacio");
+                    return;
+                }
+                if (!moveOneToSlot(slot, cursorItem))
+                    editor_.showActionMessage("No se pudo soltar 1");
             };
 
-            if (editor_.craftingTableOpen()) {
+            if (editor_.furnaceOpen()) {
+                const auto interactWithFurnaceSlot = [&](int slotIndex, bool rightClick) {
+                    InventorySlot* slot = nullptr;
+                    if (slotIndex == 0) slot = &furnaceInput;
+                    else if (slotIndex == 1) slot = &furnaceFuel;
+                    else if (slotIndex == 2) slot = &furnaceOutput;
+                    if (!slot) return;
+                    if (slotIndex == 2) {
+                        if (rightClick) {
+                            if (!moveOneToSlot(cursorItem, *slot))
+                                editor_.showActionMessage("No se pudo recoger 1");
+                        } else if (!moveAllToSlot(cursorItem, *slot)) {
+                            editor_.showActionMessage("No se pudo recoger");
+                        }
+                        return;
+                    }
+                    if (rightClick) interactWithSlotRight(*slot);
+                    else interactWithSlot(*slot);
+                };
+                if (const auto furnaceSlot = editor_.consumePendingFurnaceSlot())
+                    interactWithFurnaceSlot(*furnaceSlot, false);
+                if (const auto furnaceSlot = editor_.consumePendingRightFurnaceSlot())
+                    interactWithFurnaceSlot(*furnaceSlot, true);
+            } else if (editor_.craftingTableOpen()) {
                 if (const auto craftingSlot = editor_.consumePendingCraftingTableSlot()) {
                     if (*craftingSlot >= 0 && *craftingSlot < CraftingTableGridSlots)
-                        moveSelectedIntoSlot(craftingTableGrid.slots[*craftingSlot]);
+                        interactWithSlot(craftingTableGrid.slots[*craftingSlot]);
+                }
+                if (const auto craftingSlot = editor_.consumePendingRightCraftingTableSlot()) {
+                    if (*craftingSlot >= 0 && *craftingSlot < CraftingTableGridSlots)
+                        interactWithSlotRight(craftingTableGrid.slots[*craftingSlot]);
                 }
             } else {
                 if (const auto craftingSlot = editor_.consumePendingCraftingSlot()) {
                     if (*craftingSlot >= 0 && *craftingSlot < CraftingGridSlots)
-                        moveSelectedIntoSlot(craftingGrid.slots[*craftingSlot]);
+                        interactWithSlot(craftingGrid.slots[*craftingSlot]);
+                }
+                if (const auto craftingSlot = editor_.consumePendingRightCraftingSlot()) {
+                    if (*craftingSlot >= 0 && *craftingSlot < CraftingGridSlots)
+                        interactWithSlotRight(craftingGrid.slots[*craftingSlot]);
                 }
             }
-            if (editor_.consumePendingCraftingOutput()) {
+            const bool craftingOutputClicked = !editor_.furnaceOpen()
+                && editor_.consumePendingCraftingOutput();
+            const bool craftingOutputRightClicked = !editor_.furnaceOpen()
+                && editor_.consumePendingRightCraftingOutput();
+            if (!editor_.furnaceOpen() && (craftingOutputClicked || craftingOutputRightClicked)) {
                 const CraftingResult result = editor_.craftingTableOpen()
                     ? craftingTableResult(craftingTableGrid) : craftingResult(craftingGrid);
                 if (result.valid) {
-                    if (addToInventory(inventory, result.output.itemId, result.output.count)) {
-                        if (result.output.itemId == blockItemId(BlockType::Planks))
-                            removeOneFromCraftingGrid(craftingGrid, blockItemId(BlockType::Wood));
-                        else if (result.output.itemId == blockItemId(BlockType::CraftingTable)) {
-                            for (int index = 0; index < 4; ++index)
-                                removeOneFromCraftingGrid(craftingGrid, blockItemId(BlockType::Planks));
-                        } else if (result.output.itemId == WoodPickaxeItemId) {
-                            for (int index = 0; index < 4; ++index)
-                                removeOneFromCraftingTableGrid(craftingTableGrid,
-                                    blockItemId(BlockType::Planks));
-                        }
+                    if (addCraftingOutputToCursor(cursorItem, result.output)) {
+                        if (editor_.craftingTableOpen())
+                            consumeCraftingTableRecipe(craftingTableGrid);
+                        else
+                            consumeCraftingRecipe(craftingGrid);
                     } else {
-                        editor_.showActionMessage("Inventario lleno");
+                        editor_.showActionMessage("Cursor ocupado");
                     }
                 }
             }
             if (const auto clickedSlot = editor_.consumePendingInventorySlot()) {
                 if (*clickedSlot >= 0 && *clickedSlot < InventorySlots) {
-                    if (*clickedSlot < InventoryHotbarSlots) {
+                    if (*clickedSlot < InventoryHotbarSlots && cursorItem.empty()) {
                         selectedHotbarSlot = *clickedSlot;
-                    } else {
-                        std::swap(inventory.slots[selectedHotbarSlot],
-                            inventory.slots[*clickedSlot]);
-                        normalizeInventorySlot(inventory.slots[selectedHotbarSlot]);
-                        normalizeInventorySlot(inventory.slots[*clickedSlot]);
-                        selectedHotbarSlot = std::clamp(selectedHotbarSlot, 0, InventoryHotbarSlots - 1);
                     }
+                    interactWithSlot(inventory.slots[*clickedSlot]);
+                }
+            }
+            if (const auto clickedSlot = editor_.consumePendingRightInventorySlot()) {
+                if (*clickedSlot >= 0 && *clickedSlot < InventorySlots) {
+                    if (*clickedSlot < InventoryHotbarSlots && cursorItem.empty()) {
+                        selectedHotbarSlot = *clickedSlot;
+                    }
+                    interactWithSlotRight(inventory.slots[*clickedSlot]);
                 }
             }
         }
@@ -289,6 +413,7 @@ void Application::run() {
             nextAutosaveTime = time_.elapsedTime() + 3.0;
         }
         if (previousPlaying && !editor_.playing() && activeSaveSeed) {
+            stashCursorItem();
             savePlayerState(*activeSaveSeed, player_, inventory, craftingGrid,
                 craftingTableGrid, selectedHotbarSlot);
             activeSaveSeed.reset();
@@ -323,19 +448,34 @@ void Application::run() {
         };
         if (editor_.playing() && windowFocused && !inventoryOpen) {
             if (rightClicked || (leftClicked && shiftPressed)) {
-                const InventorySlot& selectedItem = inventory.slots[selectedHotbarSlot];
-                const BlockType selectedBlock = selectedHotbarBlock(inventory, selectedHotbarSlot);
-                if (selectedItem.empty()) {
-                    editor_.showActionMessage("Slot vacio");
-                } else if (selectedBlock == BlockType::Air) {
-                    editor_.showActionMessage("Item no colocable");
-                } else {
-                    const Renderer::TerrainEditResult result = renderer_.editTerrainDetailed(
-                        scene_, camera_, true, selectedBlock,
-                        player_.boundsMin(), player_.boundsMax());
-                    if (result == Renderer::TerrainEditResult::Success)
-                        removeOneFromSlot(inventory, selectedHotbarSlot);
-                    else showPlacementFailure(result);
+                bool handledInteraction = false;
+                if (rightClicked) {
+                    const auto target = renderer_.terrainTargetBlock(scene_, camera_);
+                    if (target && target->type == BlockType::CraftingTable) {
+                        editor_.openCraftingTable();
+                        editor_.showActionMessage("Crafting table");
+                        handledInteraction = true;
+                    } else if (target && target->type == BlockType::Furnace) {
+                        editor_.openFurnace();
+                        editor_.showActionMessage("Furnace");
+                        handledInteraction = true;
+                    }
+                }
+                if (!handledInteraction) {
+                    const InventorySlot& selectedItem = inventory.slots[selectedHotbarSlot];
+                    const BlockType selectedBlock = selectedHotbarBlock(inventory, selectedHotbarSlot);
+                    if (selectedItem.empty()) {
+                        editor_.showActionMessage("Slot vacio");
+                    } else if (selectedBlock == BlockType::Air) {
+                        editor_.showActionMessage("Item no colocable");
+                    } else {
+                        const Renderer::TerrainEditResult result = renderer_.editTerrainDetailed(
+                            scene_, camera_, true, selectedBlock,
+                            player_.boundsMin(), player_.boundsMax());
+                        if (result == Renderer::TerrainEditResult::Success)
+                            removeOneFromSlot(inventory, selectedHotbarSlot);
+                        else showPlacementFailure(result);
+                    }
                 }
                 mining = {};
                 editor_.clearMiningProgress();
@@ -344,6 +484,10 @@ void Application::run() {
                 if (!target) {
                     mining = {};
                     editor_.clearMiningProgress();
+                } else if (target->type == BlockType::Bedrock) {
+                    mining = {};
+                    editor_.clearMiningProgress();
+                    editor_.showActionMessage("Bedrock no se puede romper");
                 } else {
                     const bool sameTarget = mining.target
                         && mining.target->entityId == target->entityId
@@ -354,16 +498,21 @@ void Application::run() {
                         mining.progress = 0.0f;
                     }
                     float hardness = std::max(0.05f, blockHardnessSeconds(target->type));
-                    if (selectedHotbarHasWoodPickaxe(inventory, selectedHotbarSlot)
-                        && (target->type == BlockType::Stone || target->type == BlockType::CoalOre))
-                        hardness *= 0.45f;
+                    const int pickaxeTier = selectedHotbarPickaxeTier(inventory, selectedHotbarSlot);
+                    if (pickaxeTier > 0
+                        && (target->type == BlockType::Stone || target->type == BlockType::CoalOre)) {
+                        hardness *= pickaxeTier >= 2 ? 0.28f : 0.45f;
+                    }
                     mining.progress += deltaTime / hardness;
                     editor_.setMiningProgress(target->type, mining.progress);
                     if (mining.progress >= 1.0f) {
                         if (renderer_.editTerrain(scene_, camera_, false, BlockType::Air,
                             player_.boundsMin(), player_.boundsMax())) {
-                            if (!addToInventory(inventory, target->type))
+                            const InventorySlot drop = blockDrop(target->type);
+                            if (!drop.empty() && !addToInventory(inventory, drop))
                                 editor_.showActionMessage("Inventario lleno");
+                            if (damageInventorySlot(inventory, selectedHotbarSlot))
+                                editor_.showActionMessage("Herramienta rota");
                         }
                         mining = {};
                         editor_.clearMiningProgress();
@@ -413,6 +562,10 @@ void Application::run() {
         if (window_.width() > 0 && window_.height() > 0) {
             window_.swapBuffers();
         }
+    }
+    if (!cursorItem.empty()) {
+        addToInventory(inventory, cursorItem);
+        cursorItem = {};
     }
     if (activeSaveSeed) savePlayerState(*activeSaveSeed, player_, inventory,
         craftingGrid, craftingTableGrid, selectedHotbarSlot);
